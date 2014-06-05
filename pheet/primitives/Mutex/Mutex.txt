@@ -1,0 +1,6 @@
+Provides different lock implementations for mutual exclusion.
+
+Should conform to the C++11 mutex specification. (use std::lock_guard to create a critical section)
+
+Some implementations still have different behaviour for try_lock, but this will be changed in the future
+

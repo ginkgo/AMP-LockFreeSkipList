@@ -1,0 +1,21 @@
+A low-level barrier primitive used to synchronize threads.
+The barrier may not be used to synchronize independent tasks, as it does 
+not return control to the task-scheduler on waiting.
+
+All barrier operations require a parameter i that denotes the current 
+iteration. All threads have to start with the same i. Also, a thread may 
+only execute iteration i + 2 when all threads have finished iteration i.
+
+Methods:
+void wait(size_t i, procs_t p)
+Waits until p threads have sent a signal for iteration i.
+
+void signal(size_t i)
+Signals all threads that this thread is finished with iteration i.
+A signal also acts as a memory_fence.
+
+void barrier(size_t i, procs_t p)
+First performs a signal and then a wait operation for iteration i.
+
+void reset()
+resets the barrier so that it can be used regardless of the starting i

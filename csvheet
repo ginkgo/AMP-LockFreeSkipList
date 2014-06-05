@@ -1,0 +1,54 @@
+#!/usr/bin/python -O
+import csv
+import sys
+import socket
+import datetime
+
+hostname = socket.gethostname()
+date = datetime.date.today()
+
+class CommentedFile:
+    def __init__(self, f, commentstring="-"):
+        self.f = f
+        self.commentstring = commentstring
+    def next(self):
+        line = self.f.next()
+        while line.startswith(self.commentstring):
+            line = self.f.next()
+        if line: return line
+        else: raise StopIteration
+    def __iter__(self):
+        return self
+
+reader = csv.reader(CommentedFile(sys.stdin), delimiter='\t')
+
+headers = set(['hostname', 'date'])
+all_data = list()
+
+while True:
+	try:
+		names = reader.next()
+		values = reader.next()
+	except StopIteration:
+		break
+	
+	headers |= set(names)
+	data = dict(zip(names, values))
+	data['hostname'] = hostname
+	data['date'] = date
+	all_data.append(data)
+	
+headers.remove('')
+hlist = sorted(list(headers))
+
+writer = csv.writer(sys.stdout)
+writer.writerow(hlist)
+for data in all_data:
+	row = list()
+	for h in hlist:
+		if h in data:
+			row.append(data[h])
+		else:
+			row.append('')
+	writer.writerow(row)
+

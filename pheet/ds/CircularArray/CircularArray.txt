@@ -1,0 +1,30 @@
+Provides a circular array that may be used by other data-structures.
+As of current, circular arrays may not be shrunk.
+
+T get(size_t i)
+Thread safe. Retrieves an element at a given index.
+
+void put(size_t i, T element)
+Only thread-safe if it is guaranteed that no concurrent grow operation is issued
+
+void is_growable()
+Checks whether the array can be grown further. There might be an upper limit on growth, or 
+some implementations might even provide a fixed size.
+
+void grow(size_t bottom, size_t top)
+Grows the array. Allows for concurrent get operations to be issued, but is otherwise not thread-safe.
+May only be grown if array is_growable
+
+
+----------------------------------------------------------------------------------------------
+
+Current Implementations:
+
+FixedSizeCircularArray
+Array-based implementation. Preallocated. May not be grown.
+
+TwoLevelGrowingCircularArray
+Uses an array of pointers to arrays. Each grow operation doubles the capacity
+(Capacity is always a power of two)
+May not be shrunk
+

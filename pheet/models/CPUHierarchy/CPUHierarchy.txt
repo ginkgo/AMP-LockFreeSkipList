@@ -1,0 +1,69 @@
+deprecated
+
+Execution model for CPU schedulers operate on a tree containing all CPUs at the leaves.
+This is not a master-worker model, as all CPUs are leaves.
+The nodes in the tree represent sets (or groups) of CPUs that have something in common
+that is relevant for efficiency (e.g. shared caches. Faster communication inside the group).
+
+The execution model should only be used for initialization of the scheduler. The 
+implementations are not designed for performance, but for flexibility.
+
+The implementation is required to allow for concurrent read accesses, but does not require
+to allow concurrent read accesses to the same node.
+ 
+The initialization should work in a drill-down manner, which allows for initializations in
+a divide and conquer manner. A single thread starts operating on the top node of the 
+hierarchy and drills down through the tree until a single processing unit is reached.
+On the way, threads are created for all other nodes met on the way (where the drill-down
+procedure starts again) - Currently the drill-down is actually always implemented in a
+sequential manner, therefore support for concurrency is not required. This is an idea for
+future improvements.
+
+A processing unit might map to more than one physical processors. How processing units are
+used is dependent on the implementation of the scheduler. In general one can assume that a
+scheduler only allows a single thread to be active at each processing unit. (This is not a
+guarantee, but only an observation of typical scheduler behaviour)
+
+If the Hierarchy is not represented as a binary tree, and the implementation requires a
+binary tree, it is responsible to refine the hierarchy further.
+
+The hierarchy object should be lightweight as it is often copied.
+
+Methods:
+procs_t get_size()
+Returns the number of (virtual) processing units contained in this set.
+If get_size() returns 1 this means that we reached a leaf-node
+
+vector<CPUHierarchy> get_subsets()
+Returns the subsets contained in this set.
+
+vector<CPUDescriptor> get_cpus()
+Returns the CPU descriptors of all CPUs available to this node. Please be aware that a
+processing unit may be assigned more than one CPU and that a single CPU may be used by 
+multiple processing units. The implementation may check to return each descriptor only
+once in the return value, but is not required to do so.
+
+procs_t get_memory_levels()
+Returns how many memory levels we have at this level in the hierarchy. Is not necessarily 
+the same as depth in the tree. (e.g. for binary tree hierarchies)
+
+---------------------------------
+
+CPUDescriptors should provide an interface to query some information about the CPU (or
+CPUs) a processing unit is running on.
+
+procs_t get_physical_id()
+Returns the id of the processor in the system. Is used for setting the processor 
+affinity of threads where possible.
+
+---------------------------------
+
+Ideas to map hardware descriptors like those presented by Martin Sandrieser:
+- Hierarchy should be represented by sets with special names
+- Structure of names {MASTER_SET_NAME}_l{LEVEL}_s{SET_ID_AT_LEVEL}
+- Each drill down queries the sets at the next level (wildcard to get all sets)
+- Only items are returned that are also contained in the parent set
+- If no subsets are found, we have reached a leaf
+
+
+

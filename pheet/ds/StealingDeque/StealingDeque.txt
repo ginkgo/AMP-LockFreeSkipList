@@ -1,0 +1,49 @@
+Provides a stealing deque as it is used e.g. in work-stealing schemes and memory reclamation schemes.
+The idea is that a single thread uses the deque like a stack with the push, pop and peek methods. 
+The queue is optimized to provide good performance for this thread.
+All other thread's steal and steal_append methods, which dequeues items from the other side of the deque (queue usage)
+
+stack usage: single thread at a time
+queue usage: arbitrary number of threads. May occur at the same time as stack usage.
+
+void push(T item)
+May only be called by a single thread at a time. May not be called while another thread calls pop()
+
+T pop()
+Returns the topmost element in the deque. May only be called by a single thread at a time. 
+May not be called while another thread calls push().
+If deque is empty, nullable_traits<T>::null_value is returned. (Must be defined)
+
+T peek()
+Returns the next element to pop (stack usage). There is no guarantee that the element returned 
+will not be stolen/manipulated by concurrent threads.
+Returns nullable_traits<T>::null_value if the deque is empty.
+
+T steal()
+Dequeues a single element from the deque (queue usage).
+Returns nullable_traits<T>::null_value if stealing fails.
+Stealing might fail even though the queue is not empty. (Allowing for wait-free access)
+
+T steal_push(WorkStealingDeque &other)
+Steals multiple elements and pushes all except for the last stolen element to the given deque.
+The amount of elements stolen is implementation dependent.
+Deque usage, and stack usage for other queue.
+
+size_t get_length()
+May be called by all threads. Returns the current length of the deque.
+Implementations may use an estimation, as long as non-empty queues return a value > 0
+
+bool is_empty()
+May be called by all threads.
+
+bool is_full()
+May only by called by the thread allowed to push elements.
+Checks whether more elements can be pushed to the queue.
+
+----------------------------------------------------------------------------------------------
+In future versions of the interface might add functionality to find out how many elements may 
+at least be pushed to the queue without it running full. We still evaluate whether such a
+functionality is necessary.
+
+Same for a multi_push operation that pushes more than one element at the same time to reduce 
+overhead

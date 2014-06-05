@@ -1,0 +1,1 @@
+Takes any other CPUHierarchy as input and outputs a binary tree

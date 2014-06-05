@@ -1,0 +1,84 @@
+C++ standard used:
+C++0x (or C++11)
+
+Indentation:
+Tabs
+
+Declaration style:
+int const x; 	// Const after typename
+int* y;			// Pointer is part of type
+int const* z;	// Pointer to constant int
+int* const a;	// Constant pointer to int
+
+Namespace:
+pheet
+
+Class names:
+CamelCase
+
+Method and function names:
+lower_case_with_underscores
+
+Variable names:
+lower_case_with_underscores
+
+Constants:
+lower_case_with_underscores
+
+Makros and constants defined with #define:
+UPPER_CASE_WITH_UNDERSCORES
+Try to use C++ pendants instead where possible
+(typedef, const, templates)
+
+Template parameter types:
+CamelCase
+
+Memory allocation:
+new
+
+Output:
+Errors: std::cerr << "Error message" << std::endl;
+Normal output: std::cout
+
+Debugging:
+Include settings.h to check whether NDEBUG is defined
+Use #ifndef guards
+e.g.:
+#ifndef NDEBUG
+std::cout << "Debug message" << std::endl;
+#endif
+e.g.: pheet_assert(n > max);
+
+Standard Directories:
+short lowercase names
+Each should contain a sub.mk file (except for header-only directories)
+
+Directories containing the implementation of a class:
+CamelCase starting with an upper-case letter (should be same as class name
+or part of the class name)
+Everything required for using the class should be contained within
+Header file to include should have the same name as the class
+Optional readme file describing the class
+
+Directories providing a concept implemented by multiple classes:
+CamelCase starting with an upper-case letter
+Readme file describing the concept and guarantees given
+Each implementation is a subdirectory
+
+Header files:
+Use #ifndef guards to make sure they are only included once
+
+Source files:
+lower-case name (CamelCase for classes)
+Should start with information about Author and license
+e.g.:
+/*
+ * test.cpp
+ *
+ *  Created on: 07.04.2011
+ *   Author(s): Martin Wimmer
+ *     License: Boost Software License 1.0 (BSL1.0)
+ */
+
+For contributions to be accepted for Pheet, they have to be submitted 
+using the Boost Software License 1.0 
