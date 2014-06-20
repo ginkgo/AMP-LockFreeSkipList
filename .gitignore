@@ -1,4 +1,5 @@
 settest
+testmarkedptr
 presentation/*aux
 presentation/*fdb_latexmk
 presentation/*fls
