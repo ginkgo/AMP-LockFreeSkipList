@@ -117,8 +117,8 @@ public:
             succ = curr->next();
             if(!curr->markNext(succ))
                 continue;
-            if(pred->nextCAS(curr, succ))
-                return true;
+            pred->nextCAS(curr, succ);
+            return true;
         }
     }
 
