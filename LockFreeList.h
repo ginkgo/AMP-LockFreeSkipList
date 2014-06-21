@@ -44,11 +44,18 @@ class LockFreeList
 
         bool nextCAS(tagged_node_ptr& expected, tagged_node_ptr& ptr) {
             auto tag = ptr.get_tag();
-            if(tag & 0x7FFF)
+            if((tag & 0x7FFF) == 0x7FFF)
                 tag = tag & 0x8000;
             ++tag;
             ptr.set_tag(tag);
-            return _next.compare_exchange_strong(expected, ptr);
+            tagged_node_ptr newptr(ptr.get_ptr(), tag);
+            return _next.compare_exchange_strong(expected, newptr);
+        }
+
+        static void unMark(tagged_node_ptr& ptr) {
+            auto tag = ptr.get_tag();
+            tag = tag & 0x7FFF;
+            ptr.set_tag(tag);
         }
     };
 
@@ -68,9 +75,12 @@ class LockFreeList
 
                 succ = curr->next(marked);
                 while(marked) {
+                    Node::unMark(succ);
                     if(!pred->nextCAS(curr, succ))
                         goto retry;
                     curr = succ;
+                    if(succ.get_ptr() == nullptr)
+                        return;
                     succ = curr->next(marked);
                 }
                 if(curr->val >= val)
@@ -125,13 +135,18 @@ public:
     bool contains(const T& val) {
         bool marked;
         tagged_node_ptr curr;
+        tagged_node_ptr succ;
 
-        curr = head->next(marked);
-        while(curr.get_ptr() != nullptr && curr->val < val) {
-            curr = curr->next(marked);
-        }
+        curr = head->next();
         if(curr.get_ptr() == nullptr)
             return false;
+
+        succ = curr->next(marked);
+        while(succ.get_ptr() != nullptr && curr->val < val) {
+            curr = succ;
+            succ = curr->next(marked);
+        }
+
         return (curr->val == val && !marked);
     }
 
@@ -139,13 +154,18 @@ public:
         bool marked;
         size_t s = 0;
         tagged_node_ptr curr;
+        tagged_node_ptr succ;
 
-        curr = head->next(marked);
-        while(curr.get_ptr() != nullptr) {
+        curr = head->next();
+        if(curr.get_ptr() == nullptr)
+            return 0;
+
+        do {
+            succ = curr->next(marked);
+            curr = succ;
             if(!marked)
                 ++s;
-            curr = curr->next(marked);
-        }
+        } while(curr.get_ptr() != nullptr);
         return s;
     }
 
