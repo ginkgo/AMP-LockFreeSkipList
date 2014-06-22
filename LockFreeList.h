@@ -4,7 +4,7 @@
 #include <atomic>
 #include "tagged_ptr.h"
 
-static thread_local void* emptyHead = nullptr;
+static thread_local void* emptyStack = nullptr;
 
 template <typename Pheet, typename T>
 class LockFreeList
@@ -84,6 +84,11 @@ class LockFreeList
                     Node::unMark(succ);
                     if(!pred->nextCAS(curr, succ))
                         goto retry;
+
+                    tagged_node_ptr empty((Node*)emptyStack);
+                    curr->nextStore(empty);
+                    emptyStack = curr.get_ptr();
+
                     curr = succ;
                     if(succ.get_ptr() == nullptr)
                         return;
@@ -110,14 +115,9 @@ public:
         tagged_node_ptr node;
         std::unique_ptr<Node> ptr;
 
-        if(emptyHead == nullptr)
-            emptyHead = new Node(T());
-
-        curr = ((Node*)emptyHead)->next();
-        if(curr.get_ptr() != nullptr) { //reuse deleted node
-            tagged_node_ptr succ = curr->next();
-            ((Node*)emptyHead)->nextStore(succ);
-            node = curr;
+        if(emptyStack != nullptr) { //reuse deleted node
+            node = tagged_node_ptr((Node*)emptyStack);
+            emptyStack = node->next().get_ptr();
             node->val = val;
         } else { //create new node
             ptr.reset(new Node(val));
