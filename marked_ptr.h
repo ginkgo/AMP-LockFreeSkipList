@@ -35,6 +35,13 @@ public:
         ptr = (T*)ptr_unpack(v);
     }
 
+    T* get_ref() const
+    {
+        uintptr_t v = mp.load();
+
+        return (T*)ptr_unpack(v);
+    }
+
     
 private:
 

@@ -9,7 +9,7 @@ using std::endl;
 #include <pheet/pheet.h>
 typedef pheet::Pheet Pheet;
 
-#define USED_SET 1
+#define USED_SET 6
 
 #if USED_SET == 1
 #include "SequentialSet.h"
@@ -26,6 +26,9 @@ typedef OptimisticListSet<Pheet, int> Set;
 #elif USED_SET == 5
 #include "LazyListSet.h"
 typedef LazyListSet<Pheet, int> Set;
+#elif USED_SET == 6
+#include "LockFreeListSet.h"
+typedef LockFreeListSet<Pheet, int> Set;
 #endif
 
 void test_set(Set* set, int count, int id, int total)

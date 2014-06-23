@@ -1,5 +1,7 @@
 settest
 testmarkedptr
+pheet_test.out
+pheet_test.csv
 presentation/*aux
 presentation/*fdb_latexmk
 presentation/*fls
