@@ -78,4 +78,5 @@ for testedfunction,testtype in [('contains','1:1:2d'), ('remove','1:1:2'), ('add
     fig.legend(L, C)
     
     plt.tight_layout()
+    #plt.show()
     plt.savefig('presentation/%s.pdf' % testedfunction)
