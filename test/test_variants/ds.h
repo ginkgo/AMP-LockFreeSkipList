@@ -15,7 +15,7 @@ namespace pheet {
 
     
 #define DS_STRESS_TEST true
-const procs_t ds_stress_test_cpus[] = {1, 2, 4, 8, 12};
+    const procs_t ds_stress_test_cpus[] = {1, 2, 4, 8, 12, 16, 24, 32, 48};
 // 0: Throughput, 1: Correctness
 const int ds_stress_test_types[] = {0};
 const unsigned int ds_stress_test_seed_first = 0;

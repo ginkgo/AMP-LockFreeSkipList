@@ -29,6 +29,8 @@ $ .\mkandtestsets.sh <N>
 ```
 
 which also executes the stress tests and collects data. ```<N>``` is the number of time each test should be performed.
+Modify ```test/ds_stress/DsStressTests.cpp``` to add your own set classes.
+Modify ```test/test_variants/ds.h``` to chane test parameters.
 
 The Python script ```create_figs.py``` parses the output CSV file and creates figures.
 
