@@ -29,6 +29,9 @@ typedef LazyListSet<Pheet, int> Set;
 #elif USED_SET == 6
 #include "LockFreeListSet.h"
 typedef LockFreeListSet<Pheet, int> Set;
+#elif USED_SET == 7
+#include "LockFreeList.h"
+typedef LockFreeList<Pheet, int> Set;
 #endif
 
 void test_set(Set* set, int count, int id, int total)
