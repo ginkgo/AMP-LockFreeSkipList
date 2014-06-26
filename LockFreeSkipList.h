@@ -6,6 +6,69 @@
 
 #include "marked_ptr.h"
 
+template <typename T>
+class infordered
+{
+public:
+    
+    enum Type {MIN, VAL, MAX};
+
+    Type type;
+    T val;
+
+public:
+
+    infordered(T val)
+        : type(VAL)
+        , val(val) {};
+
+    
+private:
+    
+    infordered(Type type)
+        : type(type)
+        , val() {};
+
+
+public:
+    
+    
+    static infordered<T> min() { return infordered(MIN); }
+    static infordered<T> max() { return infordered(MAX); }
+    
+};
+
+
+template<typename T> bool operator < (const infordered<T>& a, const T& b)
+{
+    switch (a.type) {
+    case infordered<T>::MIN: return true;
+    case infordered<T>::VAL: return a.val < b;
+    case infordered<T>::MAX: return false;
+    }
+}
+
+template<typename T> bool operator <= (const infordered<T>& a, const T& b)
+{
+    switch (a.type) {
+    case infordered<T>::MIN: return true;
+    case infordered<T>::VAL: return a.val <= b;
+    case infordered<T>::MAX: return false;
+    }
+}
+
+template<typename T> bool operator == (const infordered<T>& a, const T& b)
+{
+    switch (a.type) {
+    case infordered<T>::MIN: return false;
+    case infordered<T>::VAL: return a.val == b;
+    case infordered<T>::MAX: return false;
+    }
+}
+
+
+
+
 template <class Pheet, typename TT, int MAX_LEVEL=30>
 class LockFreeSkipList {
 
@@ -15,11 +78,18 @@ public:
     typedef typename Pheet::LockGuard LockGuard;
 
     struct Node {
-        TT key;
+        infordered<TT> key;
         int top_level;
         std::vector<marked_ptr<Node>> next;
 
         Node(TT key, int height)
+            : key(key)
+            , top_level(height)
+            , next(height+1)
+        {
+        }
+        
+        Node(infordered<TT> key, int height)
             : key(key)
             , top_level(height)
             , next(height+1)
@@ -32,6 +102,7 @@ private:
 
     
     Node* head;
+    Node* tail;
     std::atomic<size_t> item_count;
 
     LockFreeSkipList(LockFreeSkipList& other); // private copy constructor
@@ -68,10 +139,14 @@ public:
 
 template <class Pheet, typename TT, int MAX_LEVEL>
 LockFreeSkipList<Pheet,TT, MAX_LEVEL>::LockFreeSkipList()
-    : head(new Node(TT(), MAX_LEVEL))
+    : head(new Node(infordered<TT>::min(), MAX_LEVEL))
+    , tail(new Node(infordered<TT>::max(), MAX_LEVEL))
     , item_count(0)
 {
-};
+    for (int i = 0; i < head->next.size(); i++) {
+        head->next[i].set(tail, false);
+    }
+}
 
 
 template <class Pheet, typename TT, int MAX_LEVEL>
@@ -104,23 +179,18 @@ bool LockFreeSkipList<Pheet,TT, MAX_LEVEL>::find(TT key, Node** preds, Node** su
 
         while (true) {
 
-            if (curr != nullptr) {
-                curr->next[level].get(succ, marked);
-            }
+            curr->next[level].get(succ, marked);
 
-            while(curr != nullptr && marked) {
+            while(marked) {
                 snip = pred->next[level].compare_and_set(curr, succ, false, false);
 
                 if (!snip) goto retry;
 
                 curr = pred->next[level].get_ref();
-
-                if (curr != nullptr) {
-                    curr->next[level].get(succ, marked);
-                }
+                curr->next[level].get(succ, marked);
             }
 
-            if (curr != nullptr && curr->key < key) {
+            if (curr->key < key) {
                 pred = curr;
                 curr = succ;
             } else {
@@ -132,8 +202,8 @@ bool LockFreeSkipList<Pheet,TT, MAX_LEVEL>::find(TT key, Node** preds, Node** su
         preds[level] = pred;
         succs[level] = curr;        
     }
-    return (curr != nullptr && curr->key == key);
     
+    return (curr->key == key);
 };
 
 
@@ -190,7 +260,37 @@ bool LockFreeSkipList<Pheet,TT, MAX_LEVEL>::add(TT const& key)
 template <class Pheet, typename TT, int MAX_LEVEL>
 bool LockFreeSkipList<Pheet, TT, MAX_LEVEL>::contains(TT const& key)
 {
-    return false;
+    int bottom_level = 0;
+
+    bool marked = false;
+
+    Node* pred = head;
+    Node* curr = nullptr;
+    Node* succ = nullptr;
+
+    for (int level = MAX_LEVEL; level >= bottom_level; level--) {
+
+        curr = pred->next[level].get_ref();
+
+        while (true) {
+
+            curr->next[level].get(succ, marked);
+
+            while (marked) {
+                curr = pred->next[level].get_ref();
+                curr->next[level].get(succ, marked);
+            }
+
+            if (curr->key < key) {
+                pred = curr;
+                curr = succ;
+            } else {
+                break;
+            }
+        }
+    }
+    
+    return (curr->key == key);
 }
 
 
@@ -211,14 +311,16 @@ bool LockFreeSkipList<Pheet, TT, MAX_LEVEL>::remove(TT const& key)
             return false;
         }
 
-
         Node* node_to_remove = succs[bottom_level];
 
         for (int level = node_to_remove->top_level; level >= bottom_level+1; level--) {
             bool marked = false;
-
-            node_to_remove->next[level].compare_and_set(succ, succ, false, true);
             node_to_remove->next[level].get(succ, marked);
+            
+            while (!marked) {
+                node_to_remove->next[level].compare_and_set(succ, succ, false, true);
+                node_to_remove->next[level].get(succ, marked);
+            }
         }
 
         bool marked = false;
@@ -252,11 +354,11 @@ int LockFreeSkipList<Pheet, TT, MAX_LEVEL>::random_level()
 {
     int level = 0;
 
-    do {
+    while (level <= MAX_LEVEL && Pheet::rand_int(1) > 0) {
         ++level;
-    } while (level <= MAX_LEVEL && Pheet::rand_int(1) > 0);
+    }
 
-    return level-1;
+    return level;
 }
 
 

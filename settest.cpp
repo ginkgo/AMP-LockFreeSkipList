@@ -54,25 +54,23 @@ void test_set(Set* set, int count, int id, int total)
             }
         }
 
-        // for (int i = 0; i < count; ++i) {
-        //     if (!set->contains(vals[i])) {
-        //         cout << id << " Set should contain " << vals[i] << ", but doesn't." << endl;
-        //     }
-        // }
+        for (int i = 0; i < count; ++i) {
+            if (!set->contains(vals[i])) {
+                cout << id << " Set should contain " << vals[i] << ", but doesn't." << endl;
+            }
+        }
         
         for (int i = 0; i < count; ++i) {
-            cout << "removing " << i << endl;
             if (!set->remove(vals[i])) {
                 cout << id << " Removing " << vals[i] << " failed." << endl;
             }
-            cout << "removed " << i << endl;
         }
         
-        // for (int i = 0; i < count; ++i) {
-        //     if (set->contains(vals[i])) {
-        //         cout << id << " Set shouldn't contain " << vals[i] << ", but does." << endl;
-        //     }
-        // }
+        for (int i = 0; i < count; ++i) {
+            if (set->contains(vals[i])) {
+                cout << id << " Set shouldn't contain " << vals[i] << ", but does." << endl;
+            }
+        }
     }
 
     cout << "done with " << id << "/" << total << endl;
@@ -93,8 +91,8 @@ int main ()
     
     {Pheet::Environment p;
     
-        const int P = 1;
-        const int N = 8;
+        const int P = 2;
+        const int N = 100000;
 
         
         for (int i = 0; i < P; ++i) {
