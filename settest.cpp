@@ -65,7 +65,7 @@ void test_set(Set* set, int count, int id, int total)
                 cout << id << " Removing " << vals[i] << " failed." << endl;
             }
         }
-        
+
         for (int i = 0; i < count; ++i) {
             if (set->contains(vals[i])) {
                 cout << id << " Set shouldn't contain " << vals[i] << ", but does." << endl;
@@ -91,12 +91,14 @@ int main ()
     
     {Pheet::Environment p;
     
-        const int P = 2;
-        const int N = 100000;
+        const int P = 12;
+        const int N = 10000;
 
         
         for (int i = 0; i < P; ++i) {
             Pheet::spawn(test_set, &set, N, i, P);
         }
     }
+
+    cout << set.check_marks() << " nodes remained marked" << endl;
 }

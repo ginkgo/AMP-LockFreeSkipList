@@ -49,6 +49,13 @@ public:
         return (T*)ptr_unpack(v);
     }
 
+    bool get_mark() const
+    {
+        uintptr_t v = mp.load();
+
+        return mark_unpack(v);
+    }
+
     
 private:
 

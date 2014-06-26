@@ -126,6 +126,7 @@ public:
     
     size_t size(); // Does not have to be exact, but needs to be > 0 if not empty
 
+    int check_marks();
 
     static int random_level();
     static void print_name();
@@ -263,7 +264,10 @@ bool LockFreeSkipList<Pheet, TT, MAX_LEVEL>::contains(TT const& key)
     int bottom_level = 0;
 
     bool marked = false;
-
+    bool snip;
+    
+ retry:
+    
     Node* pred = head;
     Node* curr = nullptr;
     Node* succ = nullptr;
@@ -277,6 +281,9 @@ bool LockFreeSkipList<Pheet, TT, MAX_LEVEL>::contains(TT const& key)
             curr->next[level].get(succ, marked);
 
             while (marked) {
+                snip = pred->next[level].compare_and_set(curr, succ, false, false);
+                if (!snip) goto retry;
+                                
                 curr = pred->next[level].get_ref();
                 curr->next[level].get(succ, marked);
             }
@@ -359,6 +366,27 @@ int LockFreeSkipList<Pheet, TT, MAX_LEVEL>::random_level()
     }
 
     return level;
+}
+
+
+template <class Pheet, typename TT, int MAX_LEVEL>
+int LockFreeSkipList<Pheet, TT, MAX_LEVEL>::check_marks()
+{
+    int markcount = 0;
+    
+    for (int level = MAX_LEVEL; level >= 0; level--) {
+        Node* node = head;
+
+        while (node != nullptr) {
+            bool mark;
+
+            node->next[level].get(node, mark);
+
+            if (mark) markcount++;
+        }
+    }
+
+    return markcount;
 }
 
 
