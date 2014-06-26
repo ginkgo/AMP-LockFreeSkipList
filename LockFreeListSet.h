@@ -194,6 +194,4 @@ void LockFreeListSet<Pheet, TT>::print_name()
 {
     // Should also print some relevant configuration parameters if applicable
     std::cout << "LockFreeListSet<";
-    Mutex::print_name();
-    std::cout << ">";
 }

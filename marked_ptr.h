@@ -27,6 +27,13 @@ public:
         return mp.compare_exchange_strong(expected_v, new_v);
     }
 
+    void set(T* ptr, bool mark)
+    {
+        uintptr_t v = pack(ptr, mark);
+
+        mp.store(v);
+    }
+    
     void get(T*& ptr, bool& mark) const
     {
         uintptr_t v = mp.load();
