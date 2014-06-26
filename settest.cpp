@@ -100,5 +100,5 @@ int main ()
         }
     }
 
-    cout << set.check_marks() << " nodes remained marked" << endl;
+    // cout << set.check_marks() << " nodes remained marked" << endl;
 }

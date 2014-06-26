@@ -22,6 +22,7 @@
 #include <LazyListSet.h>
 #include <LockFreeListSet.h>
 #include <LockFreeList.h>
+#include <LockFreeSkipList.h>
 
 #ifdef DS_STRESS_TEST
 #include "linear/LinearDsTest.h"
@@ -55,6 +56,7 @@ namespace pheet {
         this->stress_test<Pheet, LazyListSet, SetDsTest>();
         this->stress_test<Pheet, LockFreeListSet, SetDsTest>();
         this->stress_test<Pheet, LockFreeList, SetDsTest>();
+        this->stress_test<Pheet, LockFreeSkipList, SetDsTest>();
 
 #endif
     }

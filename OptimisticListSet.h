@@ -52,7 +52,7 @@ OptimisticListSet<Pheet,TT>::OptimisticListSet()
     
     head = new Node();
     head->next = nullptr;
-};
+}
 
 
 

@@ -51,7 +51,7 @@ CoarseListSet<Pheet,TT>::CoarseListSet()
     
     head = new Node();
     head->next = nullptr;
-};
+}
 
 
 template <class Pheet, typename TT>
@@ -89,11 +89,9 @@ bool CoarseListSet<Pheet, TT>::contains(TT const& key)
 {    
     LockGuard lg(lock);
 
-    volatile Node *pred = head;
     volatile Node *curr = head->next;
 
     while (curr != nullptr && curr->key < key) {
-        pred = curr;
         curr = curr->next;
     }
 

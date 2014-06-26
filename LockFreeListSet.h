@@ -69,9 +69,8 @@ template <class Pheet, typename TT>
 LockFreeListSet<Pheet,TT>::LockFreeListSet()
     : item_count(0)
 {
-    TT v;
-    head = new Node(v);
-};
+    head = new Node(TT());
+}
 
 
 

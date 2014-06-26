@@ -59,9 +59,8 @@ public:
 template <class Pheet, typename TT>
 LazyListSet<Pheet,TT>::LazyListSet()
 {
-    TT v;
-    head = new Node(v);
-};
+    head = new Node(TT());
+}
 
 
 

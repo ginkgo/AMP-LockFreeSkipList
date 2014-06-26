@@ -46,6 +46,8 @@ template<typename T> bool operator < (const infordered<T>& a, const T& b)
     case infordered<T>::VAL: return a.val < b;
     case infordered<T>::MAX: return false;
     }
+
+    return true;
 }
 
 template<typename T> bool operator <= (const infordered<T>& a, const T& b)
@@ -55,6 +57,8 @@ template<typename T> bool operator <= (const infordered<T>& a, const T& b)
     case infordered<T>::VAL: return a.val <= b;
     case infordered<T>::MAX: return false;
     }
+
+    return true;
 }
 
 template<typename T> bool operator == (const infordered<T>& a, const T& b)
@@ -64,14 +68,17 @@ template<typename T> bool operator == (const infordered<T>& a, const T& b)
     case infordered<T>::VAL: return a.val == b;
     case infordered<T>::MAX: return false;
     }
+
+    return true;
 }
 
 
 
-
-template <class Pheet, typename TT, int MAX_LEVEL=30>
+template <class Pheet, typename TT>
 class LockFreeSkipList {
 
+    static const int MAX_LEVEL=30;
+    
 public:
     
     typedef typename Pheet::Mutex Mutex;
@@ -89,7 +96,7 @@ public:
         {
         }
         
-        Node(infordered<TT> key, int height)
+        Node(const infordered<TT>& key, int height)
             : key(key)
             , top_level(height)
             , next(height+1)
@@ -138,28 +145,28 @@ public:
 /// Template method implementations start here
 
 
-template <class Pheet, typename TT, int MAX_LEVEL>
-LockFreeSkipList<Pheet,TT, MAX_LEVEL>::LockFreeSkipList()
+template <class Pheet, typename TT>
+LockFreeSkipList<Pheet,TT>::LockFreeSkipList()
     : head(new Node(infordered<TT>::min(), MAX_LEVEL))
     , tail(new Node(infordered<TT>::max(), MAX_LEVEL))
     , item_count(0)
 {
-    for (int i = 0; i < head->next.size(); i++) {
+    for (size_t i = 0; i < head->next.size(); i++) {
         head->next[i].set(tail, false);
     }
 }
 
 
-template <class Pheet, typename TT, int MAX_LEVEL>
-LockFreeSkipList<Pheet,TT, MAX_LEVEL>::~LockFreeSkipList()
+template <class Pheet, typename TT>
+LockFreeSkipList<Pheet,TT>::~LockFreeSkipList()
 {
  
-};
+}
 
 
 
-template <class Pheet, typename TT, int MAX_LEVEL>
-bool LockFreeSkipList<Pheet,TT, MAX_LEVEL>::find(TT key, Node** preds, Node** succs)
+template <class Pheet, typename TT>
+bool LockFreeSkipList<Pheet,TT>::find(TT key, Node** preds, Node** succs)
 {
     int bottom_level = 0;
 
@@ -205,13 +212,13 @@ bool LockFreeSkipList<Pheet,TT, MAX_LEVEL>::find(TT key, Node** preds, Node** su
     }
     
     return (curr->key == key);
-};
+}
 
 
 
 
-template <class Pheet, typename TT, int MAX_LEVEL>
-bool LockFreeSkipList<Pheet,TT, MAX_LEVEL>::add(TT const& key)
+template <class Pheet, typename TT>
+bool LockFreeSkipList<Pheet,TT>::add(TT const& key)
 {
     int top_level = random_level();
     int bottom_level = 0;
@@ -258,8 +265,8 @@ bool LockFreeSkipList<Pheet,TT, MAX_LEVEL>::add(TT const& key)
 
 
 
-template <class Pheet, typename TT, int MAX_LEVEL>
-bool LockFreeSkipList<Pheet, TT, MAX_LEVEL>::contains(TT const& key)
+template <class Pheet, typename TT>
+bool LockFreeSkipList<Pheet, TT>::contains(TT const& key)
 {
     int bottom_level = 0;
 
@@ -301,8 +308,8 @@ bool LockFreeSkipList<Pheet, TT, MAX_LEVEL>::contains(TT const& key)
 }
 
 
-template <class Pheet, typename TT, int MAX_LEVEL>
-bool LockFreeSkipList<Pheet, TT, MAX_LEVEL>::remove(TT const& key)
+template <class Pheet, typename TT>
+bool LockFreeSkipList<Pheet, TT>::remove(TT const& key)
 {
     int bottom_level = 0;
 
@@ -349,15 +356,15 @@ bool LockFreeSkipList<Pheet, TT, MAX_LEVEL>::remove(TT const& key)
 }
 
 
-template <class Pheet, typename TT, int MAX_LEVEL>
-size_t LockFreeSkipList<Pheet, TT, MAX_LEVEL>::size()
+template <class Pheet, typename TT>
+size_t LockFreeSkipList<Pheet, TT>::size()
 {
     return item_count;
 }
 
 
-template <class Pheet, typename TT, int MAX_LEVEL>
-int LockFreeSkipList<Pheet, TT, MAX_LEVEL>::random_level()
+template <class Pheet, typename TT>
+int LockFreeSkipList<Pheet, TT>::random_level()
 {
     int level = 0;
 
@@ -369,8 +376,8 @@ int LockFreeSkipList<Pheet, TT, MAX_LEVEL>::random_level()
 }
 
 
-template <class Pheet, typename TT, int MAX_LEVEL>
-int LockFreeSkipList<Pheet, TT, MAX_LEVEL>::check_marks()
+template <class Pheet, typename TT>
+int LockFreeSkipList<Pheet, TT>::check_marks()
 {
     int markcount = 0;
     
@@ -390,8 +397,8 @@ int LockFreeSkipList<Pheet, TT, MAX_LEVEL>::check_marks()
 }
 
 
-template <class Pheet, typename TT, int MAX_LEVEL>
-void LockFreeSkipList<Pheet, TT, MAX_LEVEL>::print_name()
+template <class Pheet, typename TT>
+void LockFreeSkipList<Pheet, TT>::print_name()
 {
     std::cout << "LockFreeSkipList";
 }

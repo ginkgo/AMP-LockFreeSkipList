@@ -75,7 +75,7 @@ private:
 
     static bool mark_unpack(uintptr_t mp)
     {
-        return mp & mask != 0;
+        return (mp & mask) != 0;
     }
     
     

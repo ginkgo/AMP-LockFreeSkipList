@@ -11,7 +11,7 @@ import math
 import re
 
 def classname(string):
-    pattern = re.compile(r'(\w+)<(\w+)>')
+    pattern = re.compile(r'(\w+)(<\w+>)?')
 
     match = pattern.match(string)
 
