@@ -25,7 +25,8 @@ class LockFreeList
             _next.store(temp);
         }
 
-        void nextStore(tagged_node_ptr& ptr) {
+        void nextStore(Node* next_ptr, boost::uint16_t act_tag) {
+            tagged_node_ptr ptr(next_ptr, act_tag);
             _next.store(ptr);
         }
 
@@ -34,70 +35,82 @@ class LockFreeList
             return ptr;
         }
 
-        tagged_node_ptr next(bool& marked) {
+        tagged_node_ptr next(boost::uint16_t& act_tag) {
             tagged_node_ptr ptr = next();
-            marked = (ptr.get_tag() & 0x8000) == 0x8000;
+            act_tag = ptr.get_tag();
             return ptr;
         }
 
-        bool markNext(tagged_node_ptr& ptr) {
-            auto tag = ptr.get_tag();
+        bool mark(tagged_node_ptr& succ) {
+            auto tag = succ.get_tag();
             ++tag;
             tag = tag | 0x8000;
-            tagged_node_ptr newptr(ptr.get_ptr(), tag);
-            return _next.compare_exchange_strong(ptr, newptr);
+            tagged_node_ptr newptr(succ.get_ptr(), tag);
+            return _next.compare_exchange_strong(succ, newptr);
         }
 
-        bool nextCAS(tagged_node_ptr& expected, tagged_node_ptr& ptr) {
-            auto tag = ptr.get_tag();
-            if((tag & 0x7FFF) == 0x7FFF)
-                tag = tag & 0x8000;
-            ++tag;
-            ptr.set_tag(tag);
-            tagged_node_ptr newptr(ptr.get_ptr(), tag);
+        bool nextCAS(tagged_node_ptr& expected, Node* next_ptr, boost::uint16_t act_tag) {
+            tagged_node_ptr newptr(next_ptr, act_tag);
             return _next.compare_exchange_strong(expected, newptr);
         }
 
-        static void unMark(tagged_node_ptr& ptr) {
-            auto tag = ptr.get_tag();
-            tag = tag & 0x7FFF;
-            ptr.set_tag(tag);
+        static bool isMarked(boost::uint16_t tag) {
+            return (tag & 0x8000) == 0x8000;
+        }
+
+        static boost::uint16_t unMark(boost::uint16_t tag) {
+            return (tag & 0x7FFF);
         }
     };
 
     tagged_node_ptr head;
 
-    void find(tagged_node_ptr& pred, tagged_node_ptr& curr, T val) {
-        bool marked;
-        tagged_node_ptr succ;
+    bool find(tagged_node_ptr& pred, tagged_node_ptr& curr, tagged_node_ptr& succ, T& curr_val, const T& val) {
+        boost::uint16_t pred_tag;
+        boost::uint16_t curr_tag;
 
         retry:
         while(true) {
             pred = head;
-            curr = pred->next();
+            curr = pred->next(pred_tag); //init pred_tag, should be always 0
             while(true) {
                 if(curr.get_ptr() == nullptr)
-                    return;
+                    return false;
 
-                succ = curr->next(marked);
-                while(marked) {
-                    Node::unMark(succ);
-                    if(!pred->nextCAS(curr, succ))
+                succ = curr->next(curr_tag);
+                while(Node::isMarked(curr_tag)) {
+                    if(!pred->nextCAS(curr, succ.get_ptr(), pred_tag))
                         goto retry;
 
-                    tagged_node_ptr empty((Node*)emptyStack);
-                    curr->nextStore(empty);
-                    emptyStack = curr.get_ptr();
+                    //curr is removed phisically from the list
+                    //pred.next is compared to curr, so curr must be in the same state since we acquired it
+
+                    if(curr_tag == 0xFFFF) {
+                        //retiredNode
+                    } else {
+                        curr->nextStore((Node*)emptyStack, Node::unMark(curr_tag));
+                        emptyStack = curr.get_ptr();
+                    }
 
                     curr = succ;
                     if(succ.get_ptr() == nullptr)
-                        return;
-                    succ = curr->next(marked);
+                        return false;
+                    succ = curr->next(curr_tag);
                 }
-                if(curr->val >= val)
-                    return;
+
+                curr_val = curr->val;
+                if(curr->next().get_tag() != curr_tag)
+                    goto retry;
+
+                //atomic curr tag is compared to curr_tag, so curr must be in the same state since we acquired it
+                //TODO: compare only timestamp, is this correct?
+                //NOTE: using milisec precise timestamp is only enough for ~32 secs, using increment on mark
+
+                if(curr_val >= val)
+                    return true;
                 pred = curr;
                 curr = succ;
+                pred_tag = curr_tag;
             }
         }
     }
@@ -105,19 +118,22 @@ class LockFreeList
 public:
     LockFreeList() {
         head.set_ptr(new Node(T()));
-        tagged_node_ptr ptr(nullptr);
-        head->nextStore(ptr);
+        head->nextStore(nullptr, 0);
     }
 
     bool add(const T& val) {
+        T curr_val;
         tagged_node_ptr pred;
         tagged_node_ptr curr;
+        tagged_node_ptr succ;
         tagged_node_ptr node;
+        boost::uint16_t node_tag;
         std::unique_ptr<Node> ptr;
 
         if(emptyStack != nullptr) { //reuse deleted node
             node = tagged_node_ptr((Node*)emptyStack);
-            emptyStack = node->next().get_ptr();
+            tagged_node_ptr next = node->next(node_tag);
+            emptyStack = next.get_ptr();
             node->val = val;
         } else { //create new node
             ptr.reset(new Node(val));
@@ -125,27 +141,27 @@ public:
         }
 
         do {
-            find(pred, curr, val);
-            if(curr.get_ptr() != nullptr && curr->val == val)
+            find(pred, curr, succ, curr_val, val);
+            if(curr.get_ptr() != nullptr && curr_val == val)
                 return false;
-            node->nextStore(curr);
-        } while(!pred->nextCAS(curr, node));
+            node->nextStore(curr.get_ptr(), node_tag);
+        } while(!pred->nextCAS(curr, node.get_ptr(), curr.get_tag())); //pred_tag
 
         ptr.release();
         return true;
     }
 
     bool remove(const T& val) {
+        T curr_val;
         tagged_node_ptr pred;
         tagged_node_ptr curr;
         tagged_node_ptr succ;
 
         while(true) {
-            find(pred, curr, val);
-            if(curr.get_ptr() == nullptr || curr->val != val)
+            find(pred, curr, succ, curr_val, val);
+            if(curr.get_ptr() == nullptr || curr_val != val)
                 return false;
-            succ = curr->next();
-            if(!curr->markNext(succ))
+            if(!curr->mark(succ))
                 continue;
             //pred->nextCAS(curr, succ);
             return true;
@@ -153,6 +169,39 @@ public:
     }
 
     bool contains(const T& val) {
+#if 1
+        T curr_val;
+        tagged_node_ptr curr;
+        tagged_node_ptr succ;
+        boost::uint16_t curr_tag;
+
+        curr = head->next();
+        if(curr.get_ptr() == nullptr)
+            return false;
+
+        retry:
+        do {
+            succ = curr->next(curr_tag);
+            curr_val = curr->val;
+            if(curr->next().get_tag() != curr_tag)
+                goto retry;
+            curr = succ;
+        } while(succ.get_ptr() != nullptr && curr_val < val);
+
+        return (curr_val == val && !Node::isMarked(curr_tag));
+#elif 0
+        //use find, solve ABA
+        T curr_val;
+        tagged_node_ptr pred;
+        tagged_node_ptr curr;
+        tagged_node_ptr succ;
+
+        if(find(pred, curr, succ, curr_val, val))
+            return curr_val == val;
+        else
+            return false;
+#elif 0
+        //original from book, no ABA
         bool marked;
         tagged_node_ptr curr;
         tagged_node_ptr succ;
@@ -168,22 +217,23 @@ public:
         }
 
         return (curr->val == val && !marked);
+#endif
     }
 
     size_t size() {
-        bool marked;
         size_t s = 0;
         tagged_node_ptr curr;
         tagged_node_ptr succ;
+        boost::uint16_t curr_tag;
 
         curr = head->next();
         if(curr.get_ptr() == nullptr)
             return 0;
 
         do {
-            succ = curr->next(marked);
+            succ = curr->next(curr_tag);
             curr = succ;
-            if(!marked)
+            if(!Node::isMarked(curr_tag))
                 ++s;
         } while(curr.get_ptr() != nullptr);
         return s;
