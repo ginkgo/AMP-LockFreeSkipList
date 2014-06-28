@@ -66,20 +66,20 @@ class LockFreeList
     tagged_node_ptr head;
 
     bool find(tagged_node_ptr& pred, tagged_node_ptr& curr, tagged_node_ptr& succ, T& curr_val, const T& val) {
-        boost::uint16_t pred_tag;
         boost::uint16_t curr_tag;
+        boost::uint16_t succ_tag;
 
         retry:
         while(true) {
             pred = head;
-            curr = pred->next(pred_tag); //init pred_tag, should be always 0
+            curr = pred->next(curr_tag);
             while(true) {
                 if(curr.get_ptr() == nullptr)
                     return false;
 
-                succ = curr->next(curr_tag);
+                succ = curr->next(succ_tag);
                 while(Node::isMarked(curr_tag)) {
-                    if(!pred->nextCAS(curr, succ.get_ptr(), pred_tag))
+                    if(!pred->nextCAS(curr, succ.get_ptr(), succ_tag))
                         goto retry;
 
                     //curr is removed phisically from the list
@@ -93,24 +93,27 @@ class LockFreeList
                     }
 
                     curr = succ;
+                    curr_tag = succ_tag;
                     if(succ.get_ptr() == nullptr)
                         return false;
-                    succ = curr->next(curr_tag);
+                    succ = curr->next(succ_tag);
                 }
 
                 curr_val = curr->val;
-                if(curr->next().get_tag() != curr_tag)
+                if(pred->next() != curr) //is pred still pointing to curr as next
                     goto retry;
 
-                //atomic curr tag is compared to curr_tag, so curr must be in the same state since we acquired it
-                //TODO: compare only timestamp, is this correct?
+                //pred.next is compared to curr, so curr must be in the same state since we acquired it
                 //NOTE: using milisec precise timestamp is only enough for ~32 secs, using increment on mark
+                //NOTE: compare ptr and timestamp, ptr is necessary, because pred might point to a different node
+                //NOTE: but the timestamp is the same. The ptr comparison is used to see changes in the list and
+                //NOTE: the timestamp comparison is used to see changes in the node
 
                 if(curr_val >= val)
                     return true;
                 pred = curr;
                 curr = succ;
-                pred_tag = curr_tag;
+                curr_tag = succ_tag;
             }
         }
     }
@@ -144,8 +147,8 @@ public:
             find(pred, curr, succ, curr_val, val);
             if(curr.get_ptr() != nullptr && curr_val == val)
                 return false;
-            node->nextStore(curr.get_ptr(), node_tag);
-        } while(!pred->nextCAS(curr, node.get_ptr(), curr.get_tag())); //pred_tag
+            node->nextStore(curr.get_ptr(), curr.get_tag());
+        } while(!pred->nextCAS(curr, node.get_ptr(), node_tag)); //pred_tag
 
         ptr.release();
         return true;
@@ -161,7 +164,7 @@ public:
             find(pred, curr, succ, curr_val, val);
             if(curr.get_ptr() == nullptr || curr_val != val)
                 return false;
-            if(!curr->mark(succ))
+            if(!pred->mark(curr))
                 continue;
             //pred->nextCAS(curr, succ);
             return true;
@@ -169,7 +172,8 @@ public:
     }
 
     bool contains(const T& val) {
-#if 1
+#if 0
+        // TODO, using find instead
         T curr_val;
         tagged_node_ptr curr;
         tagged_node_ptr succ;
@@ -189,7 +193,7 @@ public:
         } while(succ.get_ptr() != nullptr && curr_val < val);
 
         return (curr_val == val && !Node::isMarked(curr_tag));
-#elif 0
+#elif 1
         //use find, solve ABA
         T curr_val;
         tagged_node_ptr pred;
