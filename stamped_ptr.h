@@ -60,7 +60,7 @@ public:
         return mark_unpack(v);
     }
 
-    bool get_stamp() const
+    uint16_t get_stamp() const
     {
         tagged_ptr v = mp.load();
 

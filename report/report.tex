@@ -1,0 +1,65 @@
+\documentclass{article}
+
+\begin{document}
+\section{ABA problem}
+
+To solve the ABA problem the bit-stealing method was chosen.
+On a 64-bit machine only 48\,bits are used for the address.
+The remaining 15 bits are used as a timestamp and 1 bit is used to mark the node to request it's deletion.
+The timestamp is a counter, which is incremented on every deletion. Two solutions are shown using pseudocodes of the find function.
+
+\subsection{Method\,1}
+
+In this method a tagged pointer contains the tag of the current node and a pointer to the next node.
+
+\begin{enumerate}
+\item Get the timestamp of current node from current node next field
+\item Get successor and value from current node
+\item Compare timestamp of current node with the timestamp acquired at step\,1
+\item Compare predecessor next pointer with the current node pointer
+\item Set predecessor to current
+\item Set current to successor
+\end{enumerate}
+
+Here step\,3 is responsible to make sure, that the value of the current node has not been changed since we acquired it at step\,2.
+Consider the case, that thread\,\texttt{A} loaded atomically the pointer and the timestamp of the current node.
+Thread\,\texttt{B} deletes the current node and adds a new value reusing the node.
+Now thread A will read a different value, but since the timestamp is different in the current node, then which was loaded earlier, the algorithm restarts.
+
+Step\,4 is responsible to check that the predecessor still holds the current as the next node.
+Consider the case, that thread\,\texttt{A} loaded atomically the pointer to the successor.
+Thread \,\texttt{B} deletes the successor node and adds a new value reusing the node.
+Now the successor has a different position in the list.
+Now thread\,\texttt{A} continues and sets current to successor.
+If thread\,\texttt{A} would continue with the next successor, it would skip elements from the list.
+Therefore the predecessors next pointer is compared to the current pointer, if they are not the same, then the algorithm restarts.
+
+\subsection{Method\,2}
+
+In this method a tagged pointer contains the tag of the next node and a pointer to the next node.
+
+\begin{enumerate}
+\item Get tagged pointer to successor from current node
+\item Get value from current node
+\item Compare predecessor next tagged pointer with current tagged pointer
+\item Set predecessor to current
+\item Set current to successor
+\end{enumerate}
+
+Here step\,3 is responsible to check if the current node is still at the same position and has the same timestamp.
+The reasons are the same as in the first method, but here the two comparison is done in one.
+
+\subsection{Comparison of the two methods}
+
+Although method\,2 contains the tag and pointer to a node in the same tagged pointer and only one comparison is needed, but the tag is accessible only indirectly from the predecessor.
+When deleting from a skiplist, each level is being marked, so it is faster to mark them directly, instead of restarting if the predecessor has been changed. 
+
+\section{Memory reclamation}
+
+When deleting a node physically from the list, the memory cannot be freed, since other threads can have an unfinished operation on the node.
+For this reason the deleted nodes are stored in a thread local LIFO.
+A node from a skiplist can be pushed to the LIFO, when it is physically removed from the bottom level.
+If the thread local LIFO contains an empty node, then it is reused when a new value is added.
+When nodes in a skiplist are reused, the number of next pointers must be the number of maximum levels, because the new value might get a higher level, then the previous one had.
+
+\end{document}

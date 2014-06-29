@@ -1,13 +1,14 @@
 #pragma once
 
 #include <list>
+#include <deque>
 
 template <class I>
 class ItemPool
 {
 
-    std::vector<I*> unused;
-    std::vector<I*> retired;
+    std::deque<I*> unused;
+    std::deque<I*> retired;
     
 public:
 
@@ -34,7 +35,7 @@ public:
     
     void retire(I* item)
     {
-        retired.push_back(item);
+        retired.push_front(item);
     }
         
     I* acquire(int height)
