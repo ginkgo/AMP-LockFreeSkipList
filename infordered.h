@@ -76,3 +76,13 @@ template<typename T> bool operator == (const infordered<T>& a, const T& b)
 
     return true;
 }
+
+template<typename T> bool operator == (const infordered<T>& a, const infordered<T>&  b)
+{
+    return a.type == b.type && (a.type != infordered<T>::VAL || a.val == b.val);
+}
+
+template<typename T> bool operator != (const infordered<T>& a, const infordered<T>&  b)
+{
+    return a.type != b.type || (a.type == infordered<T>::VAL && a.val != b.val);
+}

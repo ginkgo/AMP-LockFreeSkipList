@@ -29,12 +29,12 @@ public:
 
     void release(I* item)
     {
-        unused.pop_back(item);
+        unused.push_back(item);
     }
     
     void retire(I* item)
     {
-        retired.pop_back(item);
+        retired.push_back(item);
     }
         
     I* acquire(int height)
@@ -42,7 +42,7 @@ public:
         I* item = nullptr;
         
         if (!unused.empty()) {
-            I* item = unused.back();
+            item = unused.back();
             unused.pop_back();
         } else {
             item = new I(height);
