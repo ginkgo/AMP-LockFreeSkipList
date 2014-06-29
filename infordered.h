@@ -30,10 +30,10 @@ private:
 
 public:
     
-    infordered<T>& operator= (T val)
+    infordered<T>& operator= (const T& v)
     {
         type = VAL;
-        val = val;
+        val = v;
 
         return *this;
     }

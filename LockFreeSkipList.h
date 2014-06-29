@@ -23,8 +23,8 @@ public:
         int top_level;
         std::vector<marked_ptr<Node>> next;
 
-        Node(TT key, int height)
-            : key(key)
+        Node(int height)
+            : key()
             , top_level(height)
             , next(height+1)
         {
@@ -35,7 +35,16 @@ public:
             , top_level(height)
             , next(height+1)
         {
-        } 
+        }
+
+        void init(const TT& k)
+        {
+            key = k;
+
+            for (size_t i = 0; i < next.size(); ++i) {
+                next[i].set(nullptr, false);
+            }
+        }
     };
 
     
@@ -154,7 +163,6 @@ bool LockFreeSkipList<Pheet,TT>::find(TT key, Node** preds, Node** succs)
 template <class Pheet, typename TT>
 bool LockFreeSkipList<Pheet,TT>::add(TT const& key)
 {
-    int top_level = random_level();
     int bottom_level = 0;
 
     Node* preds[MAX_LEVEL + 1];
@@ -167,8 +175,12 @@ bool LockFreeSkipList<Pheet,TT>::add(TT const& key)
             return false;
         }
 
-        Node* new_node = new Node(key, top_level);
+        Node* new_node = new Node(random_level());
+        new_node->init(key);
 
+
+        int top_level = new_node->top_level;
+        
         for (int level = bottom_level; level <= top_level; level++) {
             Node* succ = succs[level];
             new_node->next[level].set(succ, false);

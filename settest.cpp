@@ -95,7 +95,7 @@ int main ()
     {Pheet::Environment p;
     
         const int P = 12;
-        const int N = 1000;
+        const int N = 10000;
 
         
         for (int i = 0; i < P; ++i) {
