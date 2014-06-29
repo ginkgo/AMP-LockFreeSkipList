@@ -4,7 +4,7 @@
 #include <mutex>
 #include <atomic>
 
-#include "marked_ptr.h"
+#include "stamped_ptr.h"
 #include "infordered.h"
 
 
@@ -21,7 +21,7 @@ public:
     struct Node {
         infordered<TT> key;
         int top_level;
-        std::vector<marked_ptr<Node>> next;
+        std::vector<stamped_ptr<Node>> next;
 
         Node(int height)
             : key()
@@ -42,7 +42,7 @@ public:
             key = k;
 
             for (size_t i = 0; i < next.size(); ++i) {
-                next[i].set(nullptr, false);
+                next[i].set(nullptr, false, 0);
             }
         }
     };
@@ -95,7 +95,7 @@ LockFreeSkipList<Pheet,TT>::LockFreeSkipList()
     , item_count(0)
 {
     for (size_t i = 0; i < head->next.size(); i++) {
-        head->next[i].set(tail, false);
+        head->next[i].set(tail, false, 0);
     }
 }
 
@@ -120,6 +120,9 @@ bool LockFreeSkipList<Pheet,TT>::find(TT key, Node** preds, Node** succs)
     Node* curr = nullptr;
     Node* succ = nullptr;
 
+    uint16_t predstamp;
+    uint16_t currstamp;
+    
  retry:
 
     pred = head;
@@ -130,15 +133,15 @@ bool LockFreeSkipList<Pheet,TT>::find(TT key, Node** preds, Node** succs)
 
         while (true) {
 
-            curr->next[level].get(succ, marked);
+            curr->next[level].get(succ, marked, currstamp);
 
             while(marked) {
-                snip = pred->next[level].compare_and_set(curr, succ, false, false);
+                snip = pred->next[level].compare_and_set(curr, false, currstamp, succ, false, currstamp);
 
                 if (!snip) goto retry;
 
                 curr = pred->next[level].get_ref();
-                curr->next[level].get(succ, marked);
+                curr->next[level].get(succ, marked, currstamp);
             }
 
             if (curr->key < key) {
@@ -183,13 +186,13 @@ bool LockFreeSkipList<Pheet,TT>::add(TT const& key)
         
         for (int level = bottom_level; level <= top_level; level++) {
             Node* succ = succs[level];
-            new_node->next[level].set(succ, false);
+            new_node->next[level].set(succ, false, 0);
         }
 
         Node* pred = preds[bottom_level];
         Node* succ = succs[bottom_level];
 
-        if (!pred->next[bottom_level].compare_and_set(succ, new_node, false, false)) {
+        if (!pred->next[bottom_level].compare_and_set(succ, false, 0, new_node, false, 0)) {
             continue;
         }
 
@@ -197,7 +200,7 @@ bool LockFreeSkipList<Pheet,TT>::add(TT const& key)
             while (true) {
                 pred = preds[level];
                 succ = succs[level];
-                if (pred->next[level].compare_and_set(succ, new_node, false, false)) {
+                if (pred->next[level].compare_and_set(succ, false, 0, new_node, false, 0)) {
                     break;
                 }
                 find(key, preds, succs);
@@ -216,6 +219,8 @@ bool LockFreeSkipList<Pheet, TT>::contains(TT const& key)
 {
     int bottom_level = 0;
 
+    uint16_t currstamp;
+    
     bool marked = false;
     bool snip;
     
@@ -231,14 +236,14 @@ bool LockFreeSkipList<Pheet, TT>::contains(TT const& key)
 
         while (true) {
 
-            curr->next[level].get(succ, marked);
+            curr->next[level].get(succ, marked, currstamp);
 
             while (marked) {
-                snip = pred->next[level].compare_and_set(curr, succ, false, false);
+                snip = pred->next[level].compare_and_set(curr, false, 0, succ, false, 0);
                 if (!snip) goto retry;
                                 
                 curr = pred->next[level].get_ref();
-                curr->next[level].get(succ, marked);
+                curr->next[level].get(succ, marked, currstamp);
             }
 
             if (curr->key < key) {
@@ -275,21 +280,24 @@ bool LockFreeSkipList<Pheet, TT>::remove(TT const& key)
 
         for (int level = node_to_remove->top_level; level >= bottom_level+1; level--) {
             bool marked = false;
-            node_to_remove->next[level].get(succ, marked);
+            uint16_t stamp;
+            node_to_remove->next[level].get(succ, marked, stamp);
             
             while (!marked) {
-                node_to_remove->next[level].compare_and_set(succ, succ, false, true);
-                node_to_remove->next[level].get(succ, marked);
+                node_to_remove->next[level].compare_and_set(succ, false, 0, succ, true, 0);
+                node_to_remove->next[level].get(succ, marked, stamp);
             }
         }
 
         bool marked = false;
-        node_to_remove->next[bottom_level].get(succ, marked);
+        uint16_t stamp;
+        
+        node_to_remove->next[bottom_level].get(succ, marked, stamp);
 
         while (true) {
-            bool i_marked_it = node_to_remove->next[bottom_level].compare_and_set(succ, succ, false, true);
+            bool i_marked_it = node_to_remove->next[bottom_level].compare_and_set(succ, false, 0, succ, true, 0);
 
-            succs[bottom_level]->next[bottom_level].get(succ, marked);
+            succs[bottom_level]->next[bottom_level].get(succ, marked, stamp);
 
             if (i_marked_it) {
                 find (key, preds, succs);

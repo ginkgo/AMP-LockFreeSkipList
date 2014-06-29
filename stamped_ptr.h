@@ -42,7 +42,7 @@ public:
         tagged_ptr v = mp.load();
 
         mark = mark_unpack(v);
-        ptr = (T*)ptr_unpack(v);
+        ptr = ptr_unpack(v);
         stamp = stamp_unpack(v);
     }
 
@@ -50,7 +50,7 @@ public:
     {
         tagged_ptr v = mp.load();
 
-        return (T*)ptr_unpack(v);
+        return ptr_unpack(v);
     }
 
     bool get_mark() const
@@ -74,14 +74,14 @@ private:
     static const uint16_t MARK_MASK = 0x8000;
     static const uint16_t STAMP_MASK = 0x7fff;
 
-    static tagged_ptr pack(void const volatile* p, bool mark, uint16_t stamp)
+    static tagged_ptr pack(T* p, bool mark, uint16_t stamp)
     {
         assert(stamp <= MAX_STAMP);
 
         return tagged_ptr(p, stamp | (mark ? MARK_MASK : 0));
     }
 
-    static void* ptr_unpack(tagged_ptr tp)
+    static T* ptr_unpack(tagged_ptr tp)
     {
         return tp.get_ptr();
     }
