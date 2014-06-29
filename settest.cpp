@@ -9,7 +9,7 @@ using std::endl;
 #include <pheet/pheet.h>
 typedef pheet::Pheet Pheet;
 
-#define USED_SET 8
+#define USED_SET 9
 
 #if USED_SET == 1
 #include "SequentialSet.h"
@@ -33,6 +33,9 @@ typedef LockFreeListSet<Pheet, int> Set;
 #include "LockFreeList.h"
 typedef LockFreeList<Pheet, int> Set;
 #elif USED_SET == 8
+#include "LeakyLockFreeSkipList.h"
+typedef LeakyLockFreeSkipList<Pheet, int> Set;
+#elif USED_SET == 9
 #include "LockFreeSkipList.h"
 typedef LockFreeSkipList<Pheet, int> Set;
 #endif
@@ -92,7 +95,7 @@ int main ()
     {Pheet::Environment p;
     
         const int P = 12;
-        const int N = 10000;
+        const int N = 1000;
 
         
         for (int i = 0; i < P; ++i) {

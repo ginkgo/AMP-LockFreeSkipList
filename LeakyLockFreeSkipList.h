@@ -9,7 +9,7 @@
 
 
 template <class Pheet, typename TT>
-class LockFreeSkipList {
+class LeakyLockFreeSkipList {
 
     static const int MAX_LEVEL=30;
     
@@ -46,7 +46,7 @@ private:
     Node* tail;
     std::atomic<size_t> item_count;
 
-    LockFreeSkipList(LockFreeSkipList& other); // private copy constructor
+    LeakyLockFreeSkipList(LeakyLockFreeSkipList& other); // private copy constructor
 
 
 private:
@@ -57,8 +57,8 @@ private:
     
 public:
     
-    LockFreeSkipList();
-    ~LockFreeSkipList();
+    LeakyLockFreeSkipList();
+    ~LeakyLockFreeSkipList();
 
     
     bool add(TT const& item);
@@ -80,7 +80,7 @@ public:
 
 
 template <class Pheet, typename TT>
-LockFreeSkipList<Pheet,TT>::LockFreeSkipList()
+LeakyLockFreeSkipList<Pheet,TT>::LeakyLockFreeSkipList()
     : head(new Node(infordered<TT>::min(), MAX_LEVEL))
     , tail(new Node(infordered<TT>::max(), MAX_LEVEL))
     , item_count(0)
@@ -92,7 +92,7 @@ LockFreeSkipList<Pheet,TT>::LockFreeSkipList()
 
 
 template <class Pheet, typename TT>
-LockFreeSkipList<Pheet,TT>::~LockFreeSkipList()
+LeakyLockFreeSkipList<Pheet,TT>::~LeakyLockFreeSkipList()
 {
  
 }
@@ -100,7 +100,7 @@ LockFreeSkipList<Pheet,TT>::~LockFreeSkipList()
 
 
 template <class Pheet, typename TT>
-bool LockFreeSkipList<Pheet,TT>::find(TT key, Node** preds, Node** succs)
+bool LeakyLockFreeSkipList<Pheet,TT>::find(TT key, Node** preds, Node** succs)
 {
     int bottom_level = 0;
 
@@ -152,7 +152,7 @@ bool LockFreeSkipList<Pheet,TT>::find(TT key, Node** preds, Node** succs)
 
 
 template <class Pheet, typename TT>
-bool LockFreeSkipList<Pheet,TT>::add(TT const& key)
+bool LeakyLockFreeSkipList<Pheet,TT>::add(TT const& key)
 {
     int top_level = random_level();
     int bottom_level = 0;
@@ -200,7 +200,7 @@ bool LockFreeSkipList<Pheet,TT>::add(TT const& key)
 
 
 template <class Pheet, typename TT>
-bool LockFreeSkipList<Pheet, TT>::contains(TT const& key)
+bool LeakyLockFreeSkipList<Pheet, TT>::contains(TT const& key)
 {
     int bottom_level = 0;
 
@@ -243,7 +243,7 @@ bool LockFreeSkipList<Pheet, TT>::contains(TT const& key)
 
 
 template <class Pheet, typename TT>
-bool LockFreeSkipList<Pheet, TT>::remove(TT const& key)
+bool LeakyLockFreeSkipList<Pheet, TT>::remove(TT const& key)
 {
     int bottom_level = 0;
 
@@ -291,14 +291,14 @@ bool LockFreeSkipList<Pheet, TT>::remove(TT const& key)
 
 
 template <class Pheet, typename TT>
-size_t LockFreeSkipList<Pheet, TT>::size()
+size_t LeakyLockFreeSkipList<Pheet, TT>::size()
 {
     return item_count;
 }
 
 
 template <class Pheet, typename TT>
-int LockFreeSkipList<Pheet, TT>::random_level()
+int LeakyLockFreeSkipList<Pheet, TT>::random_level()
 {
     int level = 0;
 
@@ -311,7 +311,7 @@ int LockFreeSkipList<Pheet, TT>::random_level()
 
 
 template <class Pheet, typename TT>
-int LockFreeSkipList<Pheet, TT>::check_marks()
+int LeakyLockFreeSkipList<Pheet, TT>::check_marks()
 {
     int markcount = 0;
     
@@ -332,7 +332,7 @@ int LockFreeSkipList<Pheet, TT>::check_marks()
 
 
 template <class Pheet, typename TT>
-void LockFreeSkipList<Pheet, TT>::print_name()
+void LeakyLockFreeSkipList<Pheet, TT>::print_name()
 {
-    std::cout << "LockFreeSkipList";
+    std::cout << "LeakyLockFreeSkipList";
 }
