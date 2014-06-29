@@ -6,6 +6,7 @@
 
 #include "stamped_ptr.h"
 #include "infordered.h"
+#include "ItemPool.h"
 
 
 template <class Pheet, typename TT>
@@ -14,7 +15,7 @@ class LockFreeSkipList {
     static const int MAX_LEVEL=30;
     
 public:
-    
+
     typedef typename Pheet::Mutex Mutex;
     typedef typename Pheet::LockGuard LockGuard;
 
@@ -52,6 +53,9 @@ public:
             return stamp;
         }
     };
+
+    
+    typedef ItemPool<Node> NodePool;
 
     
 private:
@@ -240,69 +244,6 @@ bool LockFreeSkipList<Pheet,TT>::add(TT const& key)
 
 
 
-template <class Pheet, typename TT>
-bool LockFreeSkipList<Pheet, TT>::contains(TT const& key)
-{
-    
-    Node* preds[MAX_LEVEL + 1];
-    Node* succs[MAX_LEVEL + 1];
-
-    uint16_t predstamps[MAX_LEVEL + 1];
-    uint16_t succstamps[MAX_LEVEL + 1];
-
-    return find(key, preds, succs, predstamps, succstamps);
-    
- //    int bottom_level = 0;
-
- //    uint16_t currstamp;
- //    uint16_t predstamp;
-    
- //    bool marked = false;
- //    bool snip;
-
- //    TT currkey;
-    
- // retry:
-    
- //    Node* pred = head;
- //    Node* curr = nullptr;
- //    Node* succ = nullptr;
-
- //    predstamp = 0;
-
- //    for (int level = MAX_LEVEL; level >= bottom_level; level--) {
-
- //        curr = pred->next[level].get_ref();
-
- //        while (true) {
-
- //            curr->next[level].get(succ, marked, currstamp);
- //            currkey = curr->key;
-            
- //            while (curr->next[level].get_stamp() != currstamp || marked) {
- //                snip = pred->next[level].compare_and_set(curr, false, predstamp, succ, false, predstamp);
- //                if (!snip) goto retry;
-
- //                // TODO: If level == 0: Release or retire curr
-                
- //                curr = pred->next[level].get_ref();
- //                curr->next[level].get(succ, marked, currstamp);
- //                currkey = curr->key;
- //            }
-
- //            if (currkey < key) {
- //                pred = curr;
- //                curr = succ;
-
- //                predstamp = currstamp;
- //            } else {
- //                break;
- //            }
- //        }
- //    }
-    
- //    return (currkey == key);
-}
 
 
 template <class Pheet, typename TT>
@@ -334,8 +275,9 @@ bool LockFreeSkipList<Pheet, TT>::remove(TT const& key)
             uint16_t stamp;
             node_to_remove->next[level].get(succ, marked, stamp);
             
-            while (!marked && nodestamp == stamp) {
-                node_to_remove->next[level].compare_and_set(succ, false, nodestamp, succ, true, nodestamp+1);
+            while (!marked && stamp == nodestamp) {
+                node_to_remove->next[level].compare_and_set(succ, false, nodestamp,
+                                                            succ, true, nodestamp+1);
                 node_to_remove->next[level].get(succ, marked, stamp);
             }
         }
@@ -346,8 +288,10 @@ bool LockFreeSkipList<Pheet, TT>::remove(TT const& key)
         node_to_remove->next[bottom_level].get(succ, marked, stamp);
 
         while (true) {
-            bool i_marked_it = node_to_remove->next[bottom_level].compare_and_set(succ, false, nodestamp, succ, true, nodestamp+1);
-
+            bool i_marked_it =
+                node_to_remove->next[bottom_level].compare_and_set(succ, false, nodestamp,
+                                                                   succ, true, nodestamp+1);
+            
             succs[bottom_level]->next[bottom_level].get(succ, marked, stamp);
 
             if (i_marked_it) {
@@ -358,6 +302,21 @@ bool LockFreeSkipList<Pheet, TT>::remove(TT const& key)
             }
         }
     }
+}
+
+
+template <class Pheet, typename TT>
+bool LockFreeSkipList<Pheet, TT>::contains(TT const& key)
+{
+    
+    Node* preds[MAX_LEVEL + 1];
+    Node* succs[MAX_LEVEL + 1];
+
+    uint16_t predstamps[MAX_LEVEL + 1];
+    uint16_t succstamps[MAX_LEVEL + 1];
+
+    return find(key, preds, succs, predstamps, succstamps);
+    
 }
 
 

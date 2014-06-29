@@ -49,7 +49,7 @@ void test_set(Set* set, int count, int id, int total)
     std::default_random_engine generator;
     std::uniform_int_distribution<int> distribution(0,1<<5);
 
-    for (int j = 0; j < 1; ++j) {
+    for (int j = 0; j < 10; ++j) {
         for (int i = 0; i < count; ++i) {
             vals[i] = distribution(generator) * count * total +  i * total + id; 
             if (!set->add(vals[i])) {
