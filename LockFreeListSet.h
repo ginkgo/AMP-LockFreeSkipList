@@ -1,35 +1,62 @@
 #pragma once
 
-#include <set>
 #include <mutex>
 #include <atomic>
 
-#include "marked_ptr.h"
+#include "stamped_ptr.h"
+#include "infordered.h"
+#include "ItemPool.h"
 
 template <class Pheet, typename TT>
 class LockFreeListSet {
 
 public:
     
-    typedef typename Pheet::Mutex Mutex;
-    typedef typename Pheet::LockGuard LockGuard;
 
     struct Node {
-        TT key;
-        marked_ptr<Node> next;
+        infordered<TT> key;
+        stamped_ptr<Node> next;
 
-        Node(TT key)
+        Node()
+            : key()
+        {
+
+        }
+        
+        Node(infordered<TT> key)
             : key(key)
         {
 
-        } 
+        }
+
+        uint16_t init(const TT& k)
+        {
+            key = k;
+            
+            uint16_t stamp = next.get_stamp();
+            
+            return stamp;
+        }
+
+        
+        bool atomic_get_next(Node*& succ, bool& thismarked, uint16_t& thisstamp, infordered<TT>& thiskey) const
+        {
+            next.get(succ, thismarked, thisstamp);
+            thiskey = key;
+            
+            return thisstamp == next.get_stamp();
+        }
     };
+
+    typedef ItemPool<Node> NodePool;
 
     
 private:
 
     
     Node* head;
+    Node* tail;
+    
     std::atomic<size_t> item_count;
 
     LockFreeListSet(LockFreeListSet& other); // private copy constructor
@@ -38,17 +65,13 @@ private:
 private:
     
     
-    struct Window {
-        Node* pred;
-        Node* curr;
-    };
-    
-    Window find(Node* head, TT const& item);
+    bool find(TT const& item, Node*& pred, Node*&succ, Node*& succsucc, uint16_t& predstamp, uint16_t& succstamp);
+
     
 public:
     
     LockFreeListSet();
-    ~LockFreeListSet() { };
+    ~LockFreeListSet();
 
     
     bool add(TT const& item);
@@ -67,45 +90,77 @@ public:
 
 template <class Pheet, typename TT>
 LockFreeListSet<Pheet,TT>::LockFreeListSet()
-    : item_count(0)
+    : head(new Node(infordered<TT>::min()))
+    , tail(new Node(infordered<TT>::max()))
+    , item_count(0)
 {
-    head = new Node(TT());
+    head->next.set(tail, false, 0);
+}
+
+template <class Pheet, typename TT>
+LockFreeListSet<Pheet,TT>::~LockFreeListSet()
+{
+    Node* n = head;
+    Node* p;
+
+    while (n) {
+        p = n;
+        n = n->next.get_ref();
+    }
 }
 
 
 
-
 template <class Pheet, typename TT>
-typename LockFreeListSet<Pheet,TT>::Window LockFreeListSet<Pheet, TT>::find(Node* head, TT const& key)
+bool LockFreeListSet<Pheet, TT>::find(TT const& key, Node*& pred, Node*& curr, Node*& succ, uint16_t& predstamp, uint16_t& currstamp)
 {
-    Node* pred = nullptr;
-    Node* curr = nullptr;
-    Node* succ = nullptr;
-
+    NodePool& pool = Pheet::template place_singleton<NodePool>();
+    
     bool marked = false;
     bool snip;
 
+    infordered<TT> predkey;
+    infordered<TT> currkey;
+    
  retry:
     
     pred = head;
-    curr = pred->next.get_ref();
 
-    while (curr != nullptr) {
-        curr->next.get(succ, marked);
+    pred->atomic_get_next(curr, marked, predstamp, predkey);
+
+    while (true) {
+
+        if (!curr->atomic_get_next(succ, marked, currstamp, currkey)) goto retry;
+
+        assert(predkey < currkey);
+        
         while (marked) {
-            snip = pred->next.compare_and_set(curr, succ, false, false);
+            snip = pred->next.compare_and_set(curr, false, predstamp, succ, false, predstamp);
             if (!snip) goto retry;
-            curr = succ;
-            curr->next.get(succ, marked);
-        }
-        if (curr->key >= key) {
-            return {pred, curr};
-        }
-        pred = curr;
-        curr = succ;
-    }
 
-    return {pred, curr};        
+            bool success = curr->next.compare_and_set(succ, true, currstamp, succ, true, currstamp+1);
+            assert(success);
+
+            if (currstamp < stamped_ptr<Node>::MAX_STAMP) {
+                pool.release(curr);
+            } else {
+                pool.retire(curr);
+            }
+            
+            curr = succ;
+            if (!curr->atomic_get_next(succ, marked, currstamp, currkey)) goto retry;
+        }
+        
+        if (currkey < key) {
+            pred = curr;
+            curr = succ;
+
+            predstamp = currstamp;
+            predkey = currkey;
+        } else {
+            return currkey == key;
+        }
+    }
 }
 
 
@@ -115,20 +170,29 @@ typename LockFreeListSet<Pheet,TT>::Window LockFreeListSet<Pheet, TT>::find(Node
 template <class Pheet, typename TT>
 bool LockFreeListSet<Pheet,TT>::add(TT const& key)
 {
+    NodePool& pool = Pheet::template place_singleton<NodePool>();
+    
+    Node* node = pool.acquire();
+    uint16_t nodestamp = node->init(key);
+    
     while (true) {
-        Window window = find(head, key);
-        Node* pred = window.pred;
-        Node* curr = window.curr;
+        Node* pred;
+        Node* succ;
+        Node* succsucc;
+        uint16_t predstamp;
+        uint16_t succstamp;
 
-        if (curr == nullptr || curr->key != key) {
-            Node* node = new Node(key);
-            node->next.compare_and_set(nullptr, curr, false, false);
-            if (pred->next.compare_and_set(curr, node, false, false)) {
-                return true;
-            }
-        } else {
+        if (find(key, pred, succ, succsucc, predstamp, succstamp)) {
+            pool.release(node);
             return false;
         }
+        
+        node->next.set(succ, false, nodestamp);
+        
+        if (pred->next.compare_and_set(succ, false, predstamp, node, false, predstamp)) {
+            item_count++;
+            return true;
+        } 
     }
 }
 
@@ -136,46 +200,54 @@ bool LockFreeListSet<Pheet,TT>::add(TT const& key)
 
 template <class Pheet, typename TT>
 bool LockFreeListSet<Pheet, TT>::contains(TT const& key)
-{    
-    bool marked = false;
+{
+    Node* pred;
+    Node* curr;
+    Node* succ;
+    uint16_t predstamp;
+    uint16_t currstamp;
 
-    Node* curr = head->next.get_ref();
-
-    while (curr != nullptr && curr->key < key) {
-        curr = curr->next.get_ref();
-
-        Node* succ;
-        if (curr != nullptr) {
-            curr->next.get(succ,marked);
-        }
-    }
-
-    return (curr != nullptr && curr->key == key && !marked);    
+    return find(key, pred, succ, curr, predstamp, currstamp);
 }
 
 
 template <class Pheet, typename TT>
 bool LockFreeListSet<Pheet, TT>::remove(TT const& key)
 {
+    NodePool& pool = Pheet::template place_singleton<NodePool>();
+    
     bool snip;
 
     while (true) {
-        Window window = find(head,key);
-        Node* pred = window.pred;
-        Node* curr = window.curr;
+        Node* pred;
+        Node* curr;
+        Node* succ;
+        uint16_t predstamp;
+        uint16_t currstamp;
 
-        if (curr == nullptr || curr->key != key) {
+        if (!find(key, pred, curr, succ, predstamp, currstamp)) {
             return false;
-        } else {
-            Node* succ = curr->next.get_ref();
-            snip = curr->next.compare_and_set(succ, succ, false, true);
-            if (!snip) {
-                continue;
-            }
-
-            pred->next.compare_and_set(curr, succ, false, false);
-            return true;
         }
+        
+        snip = curr->next.compare_and_set(succ, false, currstamp, succ, true, currstamp);
+        if (!snip) {
+            continue;
+        }
+
+        item_count--;
+
+        // if (pred->next.compare_and_set(curr, false, predstamp, succ, false, predstamp)) {
+        //     bool success = curr->next.compare_and_set(succ, true, currstamp, succ, true, currstamp+1);
+        //     assert(success);
+
+        //     if (currstamp < stamped_ptr<Node>::MAX_STAMP) {
+        //         pool.release(curr);
+        //     } else {
+        //         pool.retire(curr);
+        //     }
+        // }
+        
+        return true;
     }
         
 }
@@ -192,5 +264,5 @@ template <class Pheet, typename TT>
 void LockFreeListSet<Pheet, TT>::print_name()
 {
     // Should also print some relevant configuration parameters if applicable
-    std::cout << "LockFreeListSet<";
+    std::cout << "LockFreeListSet";
 }

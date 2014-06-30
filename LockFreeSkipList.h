@@ -1,6 +1,5 @@
 #pragma once
 
-#include <set>
 #include <mutex>
 #include <atomic>
 
@@ -15,9 +14,6 @@ class LockFreeSkipList {
     static const int MAX_LEVEL=30;
     
 public:
-
-    typedef typename Pheet::Mutex Mutex;
-    typedef typename Pheet::LockGuard LockGuard;
 
     struct Node {
         infordered<TT> key;

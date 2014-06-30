@@ -9,7 +9,7 @@ using std::endl;
 #include <pheet/pheet.h>
 typedef pheet::Pheet Pheet;
 
-#define USED_SET 9
+#define USED_SET 6
 
 #if USED_SET == 1
 #include "SequentialSet.h"
@@ -30,7 +30,7 @@ typedef LazyListSet<Pheet, int> Set;
 #include "LockFreeListSet.h"
 typedef LockFreeListSet<Pheet, int> Set;
 #elif USED_SET == 7
-#include "LockFreeList.h"
+#include "LeakyLockFreeListSet.h"
 typedef LockFreeList<Pheet, int> Set;
 #elif USED_SET == 8
 #include "LeakyLockFreeSkipList.h"
@@ -49,7 +49,7 @@ void test_set(Set* set, int count, int id, int total)
     std::default_random_engine generator;
     std::uniform_int_distribution<int> distribution(0,1<<5);
 
-    for (int j = 0; j < 10; ++j) {
+    for (int j = 0; j < 5; ++j) {
         for (int i = 0; i < count; ++i) {
             vals[i] = distribution(generator) * count * total +  i * total + id; 
             if (!set->add(vals[i])) {
@@ -94,8 +94,8 @@ int main ()
     
     {Pheet::Environment p;
     
-        const int P = 12;
-        const int N = 10000;
+        const int P = 48;
+        const int N = 4000;
 
         
         for (int i = 0; i < P; ++i) {

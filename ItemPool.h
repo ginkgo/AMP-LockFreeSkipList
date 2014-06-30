@@ -38,6 +38,20 @@ public:
         retired.push_back(item);
     }
         
+    I* acquire()
+    {
+        I* item = nullptr;
+        
+        if (!unused.empty()) {
+            item = unused.back();
+            unused.pop_back();
+        } else {
+            item = new I();
+        }
+        
+        return item;
+    }
+        
     I* acquire(int height)
     {
         I* item = nullptr;

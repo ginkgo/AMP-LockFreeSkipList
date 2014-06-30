@@ -75,7 +75,7 @@ for testedfunction,testtype in [('contains','1:1:2d'), ('remove','1:1:2'), ('add
     ax.set_yscale('log')
     ax.set_ylabel('throughput [calls/s]')
 
-    #fig.legend(L, C, loc='right')
+    fig.legend(L, C, loc='best', prop={'size':8})
     
     plt.tight_layout()
     #plt.show()
