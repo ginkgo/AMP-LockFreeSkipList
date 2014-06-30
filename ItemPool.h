@@ -35,7 +35,7 @@ public:
     
     void retire(I* item)
     {
-        retired.push_front(item);
+        retired.push_back(item);
     }
         
     I* acquire(int height)

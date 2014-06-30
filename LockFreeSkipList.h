@@ -42,15 +42,17 @@ public:
         {
             key = k;
 
-            // TODO: unmark without changing stamp
-
             uint16_t stamp = next[0].get_stamp();
             
-            for (size_t i = 0; i < next.size(); ++i) {
-                next[i].set(nullptr, false, stamp);
-            }
-
             return stamp;
+        }
+
+        void atomic_get_next(int level, Node*& succ, bool& thismarked, uint16_t& thisstamp, infordered<TT>& thiskey) const
+        {
+            do {
+                next[level].get(succ, thismarked, thisstamp);
+                thiskey = key;
+            } while (thisstamp != next[level].get_stamp());
         }
     };
 
@@ -86,8 +88,6 @@ public:
     
     size_t size(); // Does not have to be exact, but needs to be > 0 if not empty
 
-    int check_marks();
-
     static int random_level();
     static void print_name();
     
@@ -113,7 +113,7 @@ LockFreeSkipList<Pheet,TT>::LockFreeSkipList()
 template <class Pheet, typename TT>
 LockFreeSkipList<Pheet,TT>::~LockFreeSkipList()
 {
- 
+    // TODO: free nodes
 }
 
 
@@ -121,14 +121,17 @@ LockFreeSkipList<Pheet,TT>::~LockFreeSkipList()
 template <class Pheet, typename TT>
 bool LockFreeSkipList<Pheet,TT>::find(TT key, Node** preds, Node** succs, uint16_t* predstamps, uint16_t* succstamps)
 {
+    NodePool& pool = Pheet::template place_singleton<NodePool>();
+    
     int bottom_level = 0;
 
-    bool marked = false;
+    bool currmarked = false;
     bool snip;
 
     uint16_t predstamp;
     uint16_t currstamp;
 
+    infordered<TT> predkey;
     infordered<TT> currkey;
     
  retry:
@@ -138,6 +141,7 @@ bool LockFreeSkipList<Pheet,TT>::find(TT key, Node** preds, Node** succs, uint16
     Node* succ = nullptr;
 
     predstamp = 0;
+    predkey = infordered<TT>::min();
 
     for (int level = MAX_LEVEL; level >= bottom_level; level--) {
 
@@ -145,27 +149,45 @@ bool LockFreeSkipList<Pheet,TT>::find(TT key, Node** preds, Node** succs, uint16
 
         while (true) {
 
-            curr->next[level].get(succ, marked, currstamp);
-            currkey = curr->key;
+            curr->atomic_get_next(level, succ, currmarked, currstamp, currkey);
 
-            while(curr->next[level].get_stamp() != currstamp || marked) {
+            assert(predkey < currkey);
+            
+            while(currmarked) {
                 snip = pred->next[level].compare_and_set(curr, false, predstamp, succ, false, predstamp);
 
                 if (!snip) {
                     goto retry;
                 }
 
-                // TODO: If level 0: release or retire curr here 
-                
+                if (false && level == 0) {
+                    // curr has been completely unlinked
+                    // Increment stamp
+
+                    for (int i = curr->top_level; i >= 0; i--) {
+                        Node* n = curr->next[i].get_ref();
+
+                        bool success = curr->next[i].compare_and_set(n, true, currstamp, n, true, currstamp+1);
+
+                        assert(success);
+                    }
+                    
+                    if (currstamp < stamped_ptr<Node>::MAX_STAMP) {
+                        pool.release(curr);
+                    } else {
+                        pool.retire(curr);
+                    }
+                }
+
                 curr = pred->next[level].get_ref();
-                curr->next[level].get(succ, marked, currstamp);
-                currkey = curr->key;
+                curr->atomic_get_next(level, succ, currmarked, currstamp, currkey);
             }
 
             if (currkey < key) {
                 pred = curr;
                 curr = succ;
 
+                predkey = currkey;
                 predstamp = currstamp;
             } else {
                 break;
@@ -189,6 +211,7 @@ bool LockFreeSkipList<Pheet,TT>::find(TT key, Node** preds, Node** succs, uint16
 template <class Pheet, typename TT>
 bool LockFreeSkipList<Pheet,TT>::add(TT const& key)
 {
+    NodePool& pool = Pheet::template place_singleton<NodePool>();
     int bottom_level = 0;
 
     Node* preds[MAX_LEVEL + 1];
@@ -197,16 +220,17 @@ bool LockFreeSkipList<Pheet,TT>::add(TT const& key)
     uint16_t predstamps[MAX_LEVEL + 1];
     uint16_t succstamps[MAX_LEVEL + 1];
 
+    Node* new_node = pool.acquire(random_level());
+    uint16_t nodestamp = new_node->init(key);
+        
     while (true) {
         bool found = find(key, preds, succs, predstamps, succstamps);
 
         if (found) {
+            pool.release(new_node);
             return false;
         }
 
-        Node* new_node = new Node(random_level());
-        uint16_t nodestamp = new_node->init(key);
-        
         int top_level = new_node->top_level;
         
         for (int level = bottom_level; level <= top_level; level++) {
@@ -259,47 +283,45 @@ bool LockFreeSkipList<Pheet, TT>::remove(TT const& key)
     
     Node* succ;
 
-    while (true) {
-        bool found = find(key, preds, succs, predstamps, succstamps);
+    bool found = find(key, preds, succs, predstamps, succstamps);
 
-        if (!found) {
-            return false;
-        }
+    if (!found) {
+        return false;
+    }
 
-        Node* node_to_remove = succs[bottom_level];
-        uint16_t nodestamp = succstamps[bottom_level];
+    Node* node_to_remove = succs[bottom_level];
+    uint16_t nodestamp = succstamps[bottom_level];
         
 
-        for (int level = node_to_remove->top_level; level >= bottom_level+1; level--) {
-            bool marked = false;
-            uint16_t stamp;
-            node_to_remove->next[level].get(succ, marked, stamp);
-            
-            while (!marked && stamp == nodestamp) {
-                node_to_remove->next[level].compare_and_set(succ, false, nodestamp,
-                                                            succ, true, nodestamp+1);
-                node_to_remove->next[level].get(succ, marked, stamp);
-            }
-        }
-
+    for (int level = node_to_remove->top_level; level >= bottom_level+1; level--) {
         bool marked = false;
         uint16_t stamp;
-        
-        node_to_remove->next[bottom_level].get(succ, marked, stamp);
-
-        while (true) {
-            bool i_marked_it =
-                node_to_remove->next[bottom_level].compare_and_set(succ, false, nodestamp,
-                                                                   succ, true, nodestamp+1);
+        node_to_remove->next[level].get(succ, marked, stamp);
             
-            succs[bottom_level]->next[bottom_level].get(succ, marked, stamp);
+        while (!marked && stamp == nodestamp) {
+            node_to_remove->next[level].compare_and_set(succ, false, nodestamp,
+                                                        succ, true, nodestamp);
+            node_to_remove->next[level].get(succ, marked, stamp);
+        }
+    }
 
-            if (i_marked_it) {
-                find (key, preds, succs, predstamps, succstamps);
-                return true;
-            } else if (marked) {
-                return false;
-            }
+    bool marked = false;
+    uint16_t stamp;
+        
+    node_to_remove->next[bottom_level].get(succ, marked, stamp);
+
+    while (true) {
+        bool i_marked_it =
+            node_to_remove->next[bottom_level].compare_and_set(succ, false, nodestamp,
+                                                               succ, true, nodestamp);
+            
+        succs[bottom_level]->next[bottom_level].get(succ, marked, stamp);
+
+        if (i_marked_it) {
+            //find (key, preds, succs, predstamps, succstamps);
+            return true;
+        } else if (marked || stamp > nodestamp) {
+            return false;
         }
     }
 }
@@ -337,27 +359,6 @@ int LockFreeSkipList<Pheet, TT>::random_level()
     }
 
     return level;
-}
-
-
-template <class Pheet, typename TT>
-int LockFreeSkipList<Pheet, TT>::check_marks()
-{
-    int markcount = 0;
-    
-    for (int level = MAX_LEVEL; level >= 0; level--) {
-        Node* node = head;
-
-        while (node != nullptr) {
-            bool mark;
-
-            node->next[level].get(node, mark);
-
-            if (mark) markcount++;
-        }
-    }
-
-    return markcount;
 }
 
 
