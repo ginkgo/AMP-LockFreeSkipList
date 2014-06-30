@@ -11,3 +11,12 @@ presentation/*out
 presentation/*snm
 presentation/*toc
 presentation/presentation.pdf
+report/*aux
+report/*fdb_latexmk
+report/*fls
+report/*log
+report/*nav
+report/*out
+report/*snm
+report/*toc
+report/report.pdf

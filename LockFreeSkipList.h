@@ -23,6 +23,7 @@ public:
         infordered<TT> key;
         int top_level;
         std::vector<stamped_ptr<Node>> next;
+        std::atomic<bool> add_in_progress;
 
         Node(int height)
             : key()
@@ -113,7 +114,14 @@ LockFreeSkipList<Pheet,TT>::LockFreeSkipList()
 template <class Pheet, typename TT>
 LockFreeSkipList<Pheet,TT>::~LockFreeSkipList()
 {
-    // TODO: free nodes
+    Node* n = head;
+    Node* p;
+
+    while (n) {
+        p = n;
+        n = n->next[0].get_ref();
+        delete p;
+    }    
 }
 
 
@@ -147,6 +155,8 @@ bool LockFreeSkipList<Pheet,TT>::find(TT key, Node** preds, Node** succs, uint16
 
         curr = pred->next[level].get_ref();
 
+        assert(predkey < currkey);
+
         while (true) {
 
             curr->atomic_get_next(level, succ, currmarked, currstamp, currkey);
@@ -160,7 +170,7 @@ bool LockFreeSkipList<Pheet,TT>::find(TT key, Node** preds, Node** succs, uint16
                     goto retry;
                 }
 
-                if (false && level == 0) {
+                if (level == 0) {
                     // curr has been completely unlinked
                     // Increment stamp
 
@@ -172,7 +182,7 @@ bool LockFreeSkipList<Pheet,TT>::find(TT key, Node** preds, Node** succs, uint16
                         assert(success);
                     }
                     
-                    if (currstamp < stamped_ptr<Node>::MAX_STAMP) {
+                    if (false && currstamp < stamped_ptr<Node>::MAX_STAMP && !curr->add_in_progress) {
                         pool.release(curr);
                     } else {
                         pool.retire(curr);
@@ -222,11 +232,13 @@ bool LockFreeSkipList<Pheet,TT>::add(TT const& key)
 
     Node* new_node = pool.acquire(random_level());
     uint16_t nodestamp = new_node->init(key);
+    new_node->add_in_progress = true;
         
     while (true) {
         bool found = find(key, preds, succs, predstamps, succstamps);
 
         if (found) {
+            new_node->add_in_progress = false;
             pool.release(new_node);
             return false;
         }
@@ -247,12 +259,17 @@ bool LockFreeSkipList<Pheet,TT>::add(TT const& key)
             continue;
         }
 
+        item_count++;
+        
         for (int level = bottom_level+1; level <= top_level; level++) {
             while (true) {
                 pred = preds[level];
                 succ = succs[level];
 
                 predstamp = predstamps[level];
+
+                // What if new_node has been reused at this point?
+                // new_node->add_in_progress should forbid reuse while set - Deleted nodes have to be retired
                 
                 if (pred->next[level].compare_and_set(succ, false, predstamp, new_node, false, predstamp)) {
                     break;
@@ -260,6 +277,8 @@ bool LockFreeSkipList<Pheet,TT>::add(TT const& key)
                 find(key, preds, succs, predstamps, succstamps);
             }
         }
+
+        new_node->add_in_progress = false;
         
         return true;
     }
@@ -318,6 +337,7 @@ bool LockFreeSkipList<Pheet, TT>::remove(TT const& key)
         succs[bottom_level]->next[bottom_level].get(succ, marked, stamp);
 
         if (i_marked_it) {
+            item_count--;
             //find (key, preds, succs, predstamps, succstamps);
             return true;
         } else if (marked || stamp > nodestamp) {

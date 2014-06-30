@@ -30,7 +30,7 @@ public:
 
     void release(I* item)
     {
-        unused.push_back(item);
+        unused.push_front(item);
     }
     
     void retire(I* item)
