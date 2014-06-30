@@ -51,11 +51,11 @@ namespace pheet {
         std::cout << "----" << std::endl;
 
         this->stress_test<Pheet, GlobalLockSetLess, SetDsTest>();
-        this->stress_test<Pheet, CoarseListSet, SetDsTest>();
-        this->stress_test<Pheet, OptimisticListSet, SetDsTest>();
+        //this->stress_test<Pheet, CoarseListSet, SetDsTest>();
+        //this->stress_test<Pheet, OptimisticListSet, SetDsTest>();
         this->stress_test<Pheet, LazyListSet, SetDsTest>();
         this->stress_test<Pheet, LockFreeListSet, SetDsTest>();
-        this->stress_test<Pheet, LockFreeList, SetDsTest>();
+        //this->stress_test<Pheet, LockFreeList, SetDsTest>();
         this->stress_test<Pheet, LockFreeSkipList, SetDsTest>();
 
 #endif

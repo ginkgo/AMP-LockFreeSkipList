@@ -155,13 +155,11 @@ bool LockFreeSkipList<Pheet,TT>::find(TT key, Node** preds, Node** succs, uint16
 
         curr = pred->next[level].get_ref();
 
-        assert(predkey < currkey);
-
         while (true) {
 
             curr->atomic_get_next(level, succ, currmarked, currstamp, currkey);
 
-            assert(predkey < currkey);
+            assert(predkey <= currkey);
             
             while(currmarked) {
                 snip = pred->next[level].compare_and_set(curr, false, predstamp, succ, false, predstamp);
