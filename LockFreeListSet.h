@@ -235,17 +235,6 @@ bool LockFreeListSet<Pheet, TT>::remove(TT const& key)
         }
 
         item_count--;
-
-        // if (pred->next.compare_and_set(curr, false, predstamp, succ, false, predstamp)) {
-        //     bool success = curr->next.compare_and_set(succ, true, currstamp, succ, true, currstamp+1);
-        //     assert(success);
-
-        //     if (currstamp < stamped_ptr<Node>::MAX_STAMP) {
-        //         pool.release(curr);
-        //     } else {
-        //         pool.retire(curr);
-        //     }
-        // }
         
         return true;
     }

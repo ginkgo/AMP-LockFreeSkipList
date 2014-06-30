@@ -44,12 +44,12 @@ public:
             return stamp;
         }
 
-        void atomic_get_next(int level, Node*& succ, bool& thismarked, uint16_t& thisstamp, infordered<TT>& thiskey) const
+        bool atomic_get_next(int level, Node*& succ, bool& thismarked, uint16_t& thisstamp, infordered<TT>& thiskey) const
         {
-            do {
-                next[level].get(succ, thismarked, thisstamp);
-                thiskey = key;
-            } while (thisstamp != next[level].get_stamp());
+            next[level].get(succ, thismarked, thisstamp);
+            thiskey = key;
+
+            return (thisstamp == next[level].get_stamp());
         }
     };
 
@@ -153,7 +153,7 @@ bool LockFreeSkipList<Pheet,TT>::find(TT key, Node** preds, Node** succs, uint16
 
         while (true) {
 
-            curr->atomic_get_next(level, succ, currmarked, currstamp, currkey);
+            if (!curr->atomic_get_next(level, succ, currmarked, currstamp, currkey)) goto retry;
 
             assert(predkey <= currkey);
             
@@ -184,7 +184,7 @@ bool LockFreeSkipList<Pheet,TT>::find(TT key, Node** preds, Node** succs, uint16
                 }
 
                 curr = pred->next[level].get_ref();
-                curr->atomic_get_next(level, succ, currmarked, currstamp, currkey);
+                if (!curr->atomic_get_next(level, succ, currmarked, currstamp, currkey)) goto retry;
             }
 
             if (currkey < key) {
@@ -304,7 +304,6 @@ bool LockFreeSkipList<Pheet, TT>::remove(TT const& key)
 
     Node* node_to_remove = succs[bottom_level];
     uint16_t nodestamp = succstamps[bottom_level];
-        
 
     for (int level = node_to_remove->top_level; level >= bottom_level+1; level--) {
         bool marked = false;

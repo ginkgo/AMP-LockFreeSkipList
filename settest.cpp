@@ -9,7 +9,7 @@ using std::endl;
 #include <pheet/pheet.h>
 typedef pheet::Pheet Pheet;
 
-#define USED_SET 6
+#define USED_SET 9
 
 #if USED_SET == 1
 #include "SequentialSet.h"
