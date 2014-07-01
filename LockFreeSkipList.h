@@ -175,6 +175,9 @@ bool LockFreeSkipList<Pheet,TT>::find(TT key, Node** preds, Node** succs, uint16
 
                         assert(success);
                     }
+
+                    /// IMPORTANT: We disable node reclamation here since it didn't work reliably
+                    /// All nodes get retired instead.
                     
                     if (false && currstamp < stamped_ptr<Node>::MAX_STAMP && !curr->add_in_progress) {
                         pool.release(curr);
